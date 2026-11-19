@@ -31,21 +31,78 @@ fun sanitizeFirestoreDocId(raw: String): String {
 
 class UserCloudRepository(
     private val db: FirebaseFirestore?,
-    private val auth: FirebaseAuth? = safeFirebaseAuthOrNull()
+    private val auth: FirebaseAuth? = safeFirebaseAuthOrNull(),
+    private val appContext: Context? = null
 ) {
-    private val localProfileFlow = MutableStateFlow<UserProfile?>(null)
+    private val prefs = appContext?.applicationContext
+        ?.getSharedPreferences("civlib_student_profile_prefs", Context.MODE_PRIVATE)
+
+    private val localProfileFlow = MutableStateFlow<UserProfile?>(loadPersistedLocalProfile())
     private val localPersonalBooksFlow = MutableStateFlow<List<PersonalBook>>(emptyList())
     private val localStudyNotesFlow = MutableStateFlow<List<CloudStudyNote>>(emptyList())
 
     constructor(context: Context) : this(
-        try {
+        db = try {
             FirebaseFirestore.getInstance(
                 context.applicationContext.getString(R.string.firestore_database_id)
             )
         } catch (_: Exception) {
             null
-        }
+        },
+        auth = safeFirebaseAuthOrNull(),
+        appContext = context.applicationContext
     )
+
+    private fun loadPersistedLocalProfile(): UserProfile? {
+        val sp = prefs ?: return null
+        if (!sp.getBoolean("onboarding_completed", false)) return null
+        val uid = sp.getString("user_id", "local_student") ?: "local_student"
+        val name = sp.getString("display_name", "Civil Engineer") ?: "Civil Engineer"
+        val email = sp.getString("email", null)
+        val mantra = sp.getString("study_mantra", "BS Civil Engineering · Chronological Track")
+            ?: "BS Civil Engineering · Chronological Track"
+        val year = sp.getLong("curriculum_year", 1L).coerceIn(1L, 4L)
+        val subjectKey = sp.getString("primary_subject_key", "MECHANICS") ?: "MECHANICS"
+        val goal = sp.getString("study_goal", "Current Semester Courses") ?: "Current Semester Courses"
+        return UserProfile(
+            id = uid,
+            userId = uid,
+            displayName = name,
+            email = email,
+            studyMantra = mantra,
+            curriculumYear = year,
+            primarySubjectKey = subjectKey,
+            studyGoal = goal,
+            onboardingCompleted = true
+        )
+    }
+
+    private fun persistLocalProfile(profile: UserProfile?) {
+        val sp = prefs ?: return
+        if (profile == null) {
+            sp.edit().putBoolean("onboarding_completed", false).apply()
+            return
+        }
+        sp.edit()
+            .putBoolean("onboarding_completed", profile.onboardingCompleted)
+            .putString("user_id", profile.userId)
+            .putString("display_name", profile.displayName)
+            .putString("email", profile.email)
+            .putString("study_mantra", profile.studyMantra)
+            .putLong("curriculum_year", profile.curriculumYear)
+            .putString("primary_subject_key", profile.primarySubjectKey)
+            .putString("study_goal", profile.studyGoal)
+            .apply()
+    }
+
+    fun isLocalOnboardingCompleted(): Boolean {
+        return prefs?.getBoolean("onboarding_completed", false) == true || localProfileFlow.value != null
+    }
+
+    fun clearLocalSession() {
+        localProfileFlow.value = null
+        prefs?.edit()?.putBoolean("onboarding_completed", false)?.apply()
+    }
 
     private fun requireVerifiedUserId(expectedUid: String): String {
         if (auth == null) return expectedUid
@@ -66,7 +123,7 @@ class UserCloudRepository(
         emitAll(
             docRef.snapshots()
                 .map { snapshot ->
-                    if (!snapshot.exists()) null
+                    if (!snapshot.exists()) localProfileFlow.value
                     else snapshot.toObject(
                         UserProfile::class.java,
                         DocumentSnapshot.ServerTimestampBehavior.ESTIMATE
@@ -150,16 +207,9 @@ class UserCloudRepository(
         val uid = user?.uid ?: "local_student"
         val firestore = db
         if (firestore == null || user == null) {
-            if (localProfileFlow.value == null) {
-                localProfileFlow.value = UserProfile(
-                    id = uid,
-                    userId = uid,
-                    displayName = user?.displayName ?: "Civil Engineer",
-                    email = user?.email,
-                    photoUrl = user?.photoUrl?.toString(),
-                    studyMantra = "BS Civil Engineering · Chronological Track",
-                    curriculumYear = 1L
-                )
+            val existing = localProfileFlow.value ?: loadPersistedLocalProfile()
+            if (existing != null) {
+                localProfileFlow.value = existing
             }
             return Result.success(Unit)
         }
@@ -203,17 +253,85 @@ class UserCloudRepository(
         }
     }
 
+    suspend fun saveProfileOnboardingSurvey(
+        userId: String,
+        displayName: String,
+        email: String?,
+        curriculumYear: Int,
+        primarySubjectKey: String,
+        studyGoal: String,
+        studyMantra: String
+    ): Result<UserProfile> {
+        val cleanName = displayName.trim().ifBlank { "Civil Engineer" }.take(80)
+        val cleanEmail = email?.trim()?.takeIf { it.isNotBlank() }?.take(120)
+        val clampedYear = curriculumYear.coerceIn(1, 5).toLong()
+        val cleanSubject = primarySubjectKey.trim().ifBlank { "MECHANICS" }.take(40)
+        val cleanGoal = studyGoal.trim().ifBlank { "Current Semester Courses" }.take(80)
+        val cleanMantra = studyMantra.trim().ifBlank { "BS Civil Engineering · $cleanGoal" }.take(140)
+
+        val updatedProfile = UserProfile(
+            id = userId,
+            userId = userId,
+            displayName = cleanName,
+            email = cleanEmail,
+            studyMantra = cleanMantra,
+            curriculumYear = clampedYear,
+            primarySubjectKey = cleanSubject,
+            studyGoal = cleanGoal,
+            onboardingCompleted = true
+        )
+        localProfileFlow.value = updatedProfile
+        persistLocalProfile(updatedProfile)
+
+        val firestore = db
+        if (firestore != null && auth?.currentUser != null) {
+            val docRef = firestore.collection("users").document(userId)
+            try {
+                requireVerifiedUserId(userId)
+                val payload = buildMap<String, Any> {
+                    put("userId", userId)
+                    put("displayName", cleanName)
+                    if (cleanEmail != null) put("email", cleanEmail)
+                    put("studyMantra", cleanMantra)
+                    put("curriculumYear", clampedYear)
+                    put("updatedAt", FieldValue.serverTimestamp())
+                }
+                docRef.set(payload, com.google.firebase.firestore.SetOptions.merge()).await()
+            } catch (e: Exception) {
+                handleFirestoreError(e, OperationType.WRITE, docRef.path)
+            }
+        }
+        return Result.success(updatedProfile)
+    }
+
     suspend fun updateProfilePreferences(
         userId: String,
         studyMantra: String,
-        curriculumYear: Int
+        curriculumYear: Int,
+        displayName: String? = null,
+        primarySubjectKey: String? = null,
+        studyGoal: String? = null
     ): Result<Unit> {
         val cleanMantra = studyMantra.trim().take(140)
         val clampedYear = curriculumYear.coerceIn(1, 5).toLong()
+        val current = localProfileFlow.value ?: loadPersistedLocalProfile() ?: UserProfile(
+            id = userId,
+            userId = userId,
+            displayName = displayName?.takeIf { it.isNotBlank() } ?: "Civil Engineer"
+        )
+        val nextLocal = current.copy(
+            displayName = displayName?.trim()?.takeIf { it.isNotBlank() } ?: current.displayName,
+            studyMantra = cleanMantra,
+            curriculumYear = clampedYear,
+            primarySubjectKey = primarySubjectKey?.takeIf { it.isNotBlank() } ?: current.primarySubjectKey,
+            studyGoal = studyGoal?.takeIf { it.isNotBlank() } ?: current.studyGoal,
+            onboardingCompleted = true
+        )
+        localProfileFlow.value = nextLocal
+        persistLocalProfile(nextLocal)
+
         val firestore = db
-        if (firestore == null) {
-            val current = localProfileFlow.value ?: UserProfile(id = userId, userId = userId, displayName = "Civil Engineer")
-            localProfileFlow.value = current.copy(studyMantra = cleanMantra, curriculumYear = clampedYear)
+        if (firestore == null || auth?.currentUser == null) {
             return Result.success(Unit)
         }
         val docRef = firestore.collection("users").document(userId)
@@ -221,6 +339,7 @@ class UserCloudRepository(
             requireVerifiedUserId(userId)
             docRef.update(
                 mapOf(
+                    "displayName" to nextLocal.displayName,
                     "studyMantra" to cleanMantra,
                     "curriculumYear" to clampedYear,
                     "updatedAt" to FieldValue.serverTimestamp()

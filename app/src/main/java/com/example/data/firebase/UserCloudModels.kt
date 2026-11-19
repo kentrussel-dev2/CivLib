@@ -16,6 +16,9 @@ data class UserProfile(
     val photoUrl: String? = null,
     val studyMantra: String = "BS Civil Engineering · Chronological Track",
     val curriculumYear: Long = 1L,
+    val primarySubjectKey: String = "MECHANICS",
+    val studyGoal: String = "Current Semester Courses",
+    val onboardingCompleted: Boolean = true,
     @ServerTimestamp val createdAt: Timestamp? = null,
     @ServerTimestamp val updatedAt: Timestamp? = null
 )

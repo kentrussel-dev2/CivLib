@@ -96,6 +96,7 @@ fun DiscoverHomeScreen(
     libraryState: LibraryUiState,
     searchState: SearchUiState,
     downloadProgressMap: Map<String, DownloadProgress>,
+    userProfile: com.example.data.firebase.UserProfile? = null,
     onQueryChanged: (String) -> Unit,
     onExecuteSearch: (String?) -> Unit,
     onSelectSourceFilter: (SearchSourceFilter) -> Unit,
@@ -109,12 +110,30 @@ fun DiscoverHomeScreen(
     modifier: Modifier = Modifier
 ) {
     val focusManager = LocalFocusManager.current
-    val featuredBooks = remember(libraryState.books) {
-        libraryState.books.take(7)
+    val preferredYear = (userProfile?.curriculumYear ?: 1L).toInt().coerceIn(1, 4)
+    val preferredSubjectKey = userProfile?.primarySubjectKey.orEmpty()
+
+    val personalizedBooks = remember(libraryState.books, preferredYear, preferredSubjectKey) {
+        if (userProfile == null) {
+            libraryState.books
+        } else {
+            libraryState.books.sortedWith(
+                compareBy<BookEntity>(
+                    { if (preferredSubjectKey.isNotBlank() && it.subjectKey.equals(preferredSubjectKey, ignoreCase = true)) 0 else 1 },
+                    { if (CivilSubject.fromKey(it.subjectKey).curriculumYear == preferredYear) 0 else 1 },
+                    { CivilSubject.fromKey(it.subjectKey).sequenceOrder },
+                    { it.courseCode }
+                )
+            )
+        }
     }
-    val topShelfBooks = remember(libraryState.books) {
-        if (libraryState.books.size > 3) libraryState.books.drop(1) + libraryState.books.first()
-        else libraryState.books
+
+    val featuredBooks = remember(personalizedBooks) {
+        personalizedBooks.take(7)
+    }
+    val topShelfBooks = remember(personalizedBooks) {
+        if (personalizedBooks.size > 3) personalizedBooks.drop(1) + personalizedBooks.first()
+        else personalizedBooks
     }
     val showSearchResults = searchState.query.isNotBlank() && (searchState.hasSearched || searchState.isSearching)
 

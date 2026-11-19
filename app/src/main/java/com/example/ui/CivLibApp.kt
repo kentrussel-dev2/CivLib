@@ -79,6 +79,7 @@ import com.example.ui.viewmodel.CivLibViewModel
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.auth.FirebaseUser
 import com.google.firebase.firestore.FirebaseFirestore
+import kotlinx.coroutines.launch
 
 const val ROUTE_PROFILE = "profile"
 const val ROUTE_LIBRARY = "library"
@@ -132,13 +133,36 @@ fun CivLibApp(
     onConsumeIncomingPdf: () -> Unit = {},
     auth: FirebaseAuth? = remember { safeFirebaseAuthOrNull() }
 ) {
+    val context = LocalContext.current
+    val scope = rememberCoroutineScope()
+    val cloudRepo = remember(context) { UserCloudRepository(context.applicationContext) }
+
     val currentUser by remember(auth) { auth.authStateFlow() }
         .collectAsStateWithLifecycle(initialValue = auth?.currentUser)
-    var localSessionActive by remember { mutableStateOf(auth == null) }
+    var localSessionActive by remember {
+        mutableStateOf(cloudRepo.isLocalOnboardingCompleted())
+    }
 
     val user = currentUser
     if (user == null && !localSessionActive) {
-        AuthScreen(onAuthSuccess = { localSessionActive = true })
+        AuthScreen(
+            onAuthSuccess = { localSessionActive = true },
+            onSurveyCompleted = { survey ->
+                scope.launch {
+                    val uid = auth?.currentUser?.uid ?: "local_student"
+                    cloudRepo.saveProfileOnboardingSurvey(
+                        userId = uid,
+                        displayName = survey.displayName,
+                        email = survey.email,
+                        curriculumYear = survey.curriculumYear,
+                        primarySubjectKey = survey.primarySubjectKey,
+                        studyGoal = survey.studyGoal,
+                        studyMantra = survey.studyMantra
+                    )
+                    localSessionActive = true
+                }
+            }
+        )
     } else {
         val sessionKey = user?.uid ?: "local_student"
         // Key by UID so switching accounts or signing out disposes Firestore listeners cleanly
@@ -147,7 +171,10 @@ fun CivLibApp(
                 currentUser = user,
                 incomingPdfUri = incomingPdfUri,
                 onConsumeIncomingPdf = onConsumeIncomingPdf,
-                onSignedOut = { localSessionActive = false }
+                onSignedOut = {
+                    cloudRepo.clearLocalSession()
+                    localSessionActive = false
+                }
             )
         }
     }
@@ -180,7 +207,10 @@ private fun AuthenticatedCivLibApp(
                 }
                 CivLibViewModel(
                     appContext = app.applicationContext,
-                    cloudRepository = UserCloudRepository(db),
+                    cloudRepository = UserCloudRepository(
+                        db = db,
+                        appContext = app.applicationContext
+                    ),
                     currentUser = currentUser
                 )
             }
@@ -245,6 +275,7 @@ private fun AuthenticatedCivLibApp(
     }
 
     val handleSignOut: () -> Unit = {
+        viewModel.clearLocalProfileSession()
         signOutWithCleanup(
             credentialManager = credentialManager,
             scope = scope,
@@ -339,6 +370,7 @@ private fun AuthenticatedCivLibApp(
                             libraryState = libraryState,
                             searchState = searchState,
                             downloadProgressMap = downloadProgressMap,
+                            userProfile = userProfile,
                             onQueryChanged = viewModel::onSearchQueryChanged,
                             onExecuteSearch = viewModel::executeSearch,
                             onSelectSourceFilter = viewModel::setSearchSourceFilter,
@@ -388,7 +420,19 @@ private fun AuthenticatedCivLibApp(
                             cloudNotes = cloudNotes,
                             onImportPdfClick = launchPdfImport,
                             onRefreshCatalog = { viewModel.refreshOpenAccessCatalog(silent = false) },
-                            onUpdateProfilePreferences = viewModel::updateProfilePreferences,
+                            onUpdateProfilePreferences = { mantra, yr ->
+                                viewModel.updateProfilePreferences(mantra, yr)
+                            },
+                            onSaveProfileSurvey = { res ->
+                                viewModel.saveProfileOnboardingSurvey(
+                                    displayName = res.displayName,
+                                    email = res.email,
+                                    curriculumYear = res.curriculumYear,
+                                    primarySubjectKey = res.primarySubjectKey,
+                                    studyGoal = res.studyGoal,
+                                    studyMantra = res.studyMantra
+                                )
+                            },
                             onSignOutClick = handleSignOut,
                             onSwitchGoogleAccount = handleSignOut,
                             onBookClick = openBookDetail,

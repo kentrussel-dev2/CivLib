@@ -105,6 +105,9 @@ fun ProfileVaultScreen(
     onImportPdfClick: () -> Unit,
     onRefreshCatalog: () -> Unit,
     onUpdateProfilePreferences: (studyMantra: String, curriculumYear: Int) -> Unit,
+    onSaveProfileSurvey: (ProfileSurveyResult) -> Unit = { res ->
+        onUpdateProfilePreferences(res.studyMantra, res.curriculumYear)
+    },
     onSignOutClick: () -> Unit,
     onSwitchGoogleAccount: () -> Unit = onSignOutClick,
     onBookClick: (String) -> Unit,
@@ -115,6 +118,7 @@ fun ProfileVaultScreen(
     // 0 = My Shelf (Personal Saved + Notes), 1 = Recommend (IG 3-Column Book Grid)
     var selectedTab by rememberSaveable { mutableIntStateOf(1) }
     var showEditProfileDialog by remember { mutableStateOf(false) }
+    var showFullSurveyModal by rememberSaveable { mutableStateOf(false) }
 
     val displayName = userProfile?.displayName?.takeIf { it.isNotBlank() }
         ?: currentUser?.displayName?.takeIf { it.isNotBlank() }
@@ -125,13 +129,39 @@ fun ProfileVaultScreen(
     val photoUrl = userProfile?.photoUrl?.takeIf { it.isNotBlank() }
         ?: currentUser?.photoUrl?.toString()
     val curriculumYear = (userProfile?.curriculumYear ?: 1L).toInt().coerceIn(1, 4)
+    val primarySubjectKey = userProfile?.primarySubjectKey?.takeIf { it.isNotBlank() }
+        ?: CivilSubject.entries.firstOrNull { it.curriculumYear == curriculumYear }?.name
+        ?: CivilSubject.MECHANICS.name
+    val primarySubject = remember(primarySubjectKey) { CivilSubject.fromKey(primarySubjectKey) }
+    val studyGoal = userProfile?.studyGoal?.takeIf { it.isNotBlank() }
+        ?: "Current Semester Courses"
     val studyMantra = userProfile?.studyMantra?.takeIf { it.isNotBlank() }
-        ?: "BS Civil Engineering"
+        ?: "${primarySubject.shortName} (${primarySubject.courseCode}) · $studyGoal"
 
-    // Prioritize recommended books matching her current college year first, then chronological order
-    val recommendedBooks = remember(allBooks, curriculumYear) {
+    if (showFullSurveyModal) {
+        AuthScreen(
+            onAuthSuccess = { showFullSurveyModal = false },
+            onSurveyCompleted = { result ->
+                onSaveProfileSurvey(result)
+                showFullSurveyModal = false
+                selectedTab = 1
+            },
+            initialShowSurvey = true,
+            initialName = displayName,
+            initialEmail = userEmail,
+            initialYear = curriculumYear,
+            initialSubjectKey = primarySubjectKey,
+            initialGoal = studyGoal,
+            modifier = modifier
+        )
+        return
+    }
+
+    // Prioritize recommended books matching her chosen survey subject first, then her college year, then chronological order
+    val recommendedBooks = remember(allBooks, curriculumYear, primarySubjectKey) {
         allBooks.sortedWith(
             compareBy<BookEntity>(
+                { if (it.subjectKey.equals(primarySubjectKey, ignoreCase = true)) 0 else 1 },
                 {
                     val subjYear = CivilSubject.fromKey(it.subjectKey).curriculumYear
                     if (subjYear == curriculumYear) 0 else 1
@@ -237,7 +267,7 @@ fun ProfileVaultScreen(
                             horizontalArrangement = Arrangement.Center,
                             modifier = Modifier
                                 .clip(RoundedCornerShape(999.dp))
-                                .clickable { showEditProfileDialog = true }
+                                .clickable { showFullSurveyModal = true }
                                 .padding(horizontal = 12.dp, vertical = 4.dp)
                                 .testTag("edit_profile_mantra_button")
                         ) {
@@ -258,9 +288,40 @@ fun ProfileVaultScreen(
                             )
                         }
 
-                        // Google Account Pill with quick Switch Account action
-                        if (userEmail.isNotBlank()) {
-                            Spacer(modifier = Modifier.height(6.dp))
+                        Spacer(modifier = Modifier.height(8.dp))
+
+                        // Google Account Pill + Customize Study Survey Button Row
+                        Row(
+                            horizontalArrangement = Arrangement.spacedBy(8.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Surface(
+                                onClick = { showFullSurveyModal = true },
+                                shape = RoundedCornerShape(999.dp),
+                                color = SandCream,
+                                modifier = Modifier.testTag("profile_open_survey_button")
+                            ) {
+                                Row(
+                                    modifier = Modifier.padding(horizontal = 12.dp, vertical = 5.dp),
+                                    verticalAlignment = Alignment.CenterVertically
+                                ) {
+                                    Icon(
+                                        imageVector = Icons.Outlined.Edit,
+                                        contentDescription = "Study Survey",
+                                        tint = EspressoInk,
+                                        modifier = Modifier.size(13.dp)
+                                    )
+                                    Spacer(modifier = Modifier.width(5.dp))
+                                    Text(
+                                        text = "Study Survey · ${primarySubject.shortName}",
+                                        fontFamily = DmSansFontFamily,
+                                        fontWeight = FontWeight.Bold,
+                                        fontSize = 11.5.sp,
+                                        color = EspressoInk
+                                    )
+                                }
+                            }
+
                             Surface(
                                 onClick = onSwitchGoogleAccount,
                                 shape = RoundedCornerShape(999.dp),
@@ -268,7 +329,7 @@ fun ProfileVaultScreen(
                                 modifier = Modifier.testTag("profile_switch_google_account")
                             ) {
                                 Row(
-                                    modifier = Modifier.padding(horizontal = 12.dp, vertical = 5.dp),
+                                    modifier = Modifier.padding(horizontal = 11.dp, vertical = 5.dp),
                                     verticalAlignment = Alignment.CenterVertically
                                 ) {
                                     Text(
@@ -278,21 +339,21 @@ fun ProfileVaultScreen(
                                         fontSize = 11.sp,
                                         color = EspressoInk
                                     )
-                                    Spacer(modifier = Modifier.width(6.dp))
+                                    Spacer(modifier = Modifier.width(5.dp))
                                     Text(
-                                        text = userEmail,
+                                        text = userEmail.ifBlank { "Google Account" },
                                         fontFamily = DmSansFontFamily,
                                         fontSize = 11.5.sp,
                                         color = EspressoInk,
                                         maxLines = 1,
                                         overflow = TextOverflow.Ellipsis
                                     )
-                                    Spacer(modifier = Modifier.width(6.dp))
+                                    Spacer(modifier = Modifier.width(5.dp))
                                     Icon(
                                         imageVector = Icons.Outlined.SwitchAccount,
                                         contentDescription = "Switch Google account",
                                         tint = EspressoInkMuted,
-                                        modifier = Modifier.size(14.dp)
+                                        modifier = Modifier.size(13.dp)
                                     )
                                 }
                             }
@@ -396,7 +457,7 @@ fun ProfileVaultScreen(
                             .testTag("profile_tab_shelf")
                     )
                     ProfileStickyIgTab(
-                        label = "Recommend",
+                        label = "For You · Y$curriculumYear ${primarySubject.shortName}",
                         icon = if (selectedTab == 1) Icons.Filled.GridOn else Icons.Outlined.GridOn,
                         selected = selectedTab == 1,
                         onClick = { selectedTab = 1 },

@@ -257,14 +257,23 @@ class CivLibViewModel(
         initialValue = LibraryUiState()
     )
 
-    // Next chronological textbook she hasn't completed yet
+    // Next recommended textbook matching her survey subject & year that she hasn't completed yet
     val nextChronologicalBook: StateFlow<BookEntity?> = combine(
         libraryUiState,
-        completedBookIds
-    ) { libState, completed ->
-        libState.books.firstOrNull { book ->
+        completedBookIds,
+        userProfileState
+    ) { libState, completed, profileState ->
+        val profile = (profileState as? CloudUiState.Success)?.data
+        val preferredSubj = profile?.primarySubjectKey
+        val preferredYear = (profile?.curriculumYear ?: 1L).toInt().coerceIn(1, 4)
+
+        val uncompleted = libState.books.filter { book ->
             sanitizeFirestoreDocId(book.id) !in completed && book.id !in completed
-        } ?: libState.books.firstOrNull()
+        }
+        uncompleted.firstOrNull { !preferredSubj.isNullOrBlank() && it.subjectKey.equals(preferredSubj, ignoreCase = true) }
+            ?: uncompleted.firstOrNull { CivilSubject.fromKey(it.subjectKey).curriculumYear == preferredYear }
+            ?: uncompleted.firstOrNull()
+            ?: libState.books.firstOrNull()
     }.stateIn(
         scope = viewModelScope,
         started = SharingStarted.WhileSubscribed(5000L),
@@ -327,9 +336,49 @@ class CivLibViewModel(
         }
     }
 
-    fun updateProfilePreferences(studyMantra: String, curriculumYear: Int) {
+    fun saveProfileOnboardingSurvey(
+        displayName: String,
+        email: String?,
+        curriculumYear: Int,
+        primarySubjectKey: String,
+        studyGoal: String,
+        studyMantra: String
+    ) {
         viewModelScope.launch {
-            cloudRepository.updateProfilePreferences(currentUserId, studyMantra, curriculumYear)
+            cloudRepository.saveProfileOnboardingSurvey(
+                userId = currentUserId,
+                displayName = displayName,
+                email = email,
+                curriculumYear = curriculumYear,
+                primarySubjectKey = primarySubjectKey,
+                studyGoal = studyGoal,
+                studyMantra = studyMantra
+            ).onSuccess { profile ->
+                val subj = CivilSubject.fromKey(profile.primarySubjectKey)
+                _snackbarMessage.value =
+                    "Welcome ${profile.displayName}! Personalized for Year ${profile.curriculumYear} · ${subj.shortName}"
+            }.onFailure { err ->
+                _snackbarMessage.value = err.localizedMessage ?: "Could not save profile preferences"
+            }
+        }
+    }
+
+    fun updateProfilePreferences(
+        studyMantra: String,
+        curriculumYear: Int,
+        displayName: String? = null,
+        primarySubjectKey: String? = null,
+        studyGoal: String? = null
+    ) {
+        viewModelScope.launch {
+            cloudRepository.updateProfilePreferences(
+                userId = currentUserId,
+                studyMantra = studyMantra,
+                curriculumYear = curriculumYear,
+                displayName = displayName,
+                primarySubjectKey = primarySubjectKey,
+                studyGoal = studyGoal
+            )
                 .onSuccess {
                     _snackbarMessage.value = "Profile updated for Year ${curriculumYear.coerceIn(1, 5)}"
                 }
@@ -337,6 +386,10 @@ class CivLibViewModel(
                     _snackbarMessage.value = err.localizedMessage ?: "Could not save profile changes"
                 }
         }
+    }
+
+    fun clearLocalProfileSession() {
+        cloudRepository.clearLocalSession()
     }
 
     fun toggleBookInPersonalLibrary(book: BookEntity) {
