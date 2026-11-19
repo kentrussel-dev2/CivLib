@@ -14,10 +14,12 @@ import com.google.firebase.firestore.FirebaseFirestoreException
 import com.google.firebase.firestore.snapshots
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.catch
 import kotlinx.coroutines.flow.emitAll
 import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.tasks.await
 
 private val VALID_DOC_ID_REGEX = Regex("[^a-zA-Z0-9_\\-.]")
@@ -28,16 +30,25 @@ fun sanitizeFirestoreDocId(raw: String): String {
 }
 
 class UserCloudRepository(
-    private val db: FirebaseFirestore,
-    private val auth: FirebaseAuth = Firebase.auth
+    private val db: FirebaseFirestore?,
+    private val auth: FirebaseAuth? = safeFirebaseAuthOrNull()
 ) {
+    private val localProfileFlow = MutableStateFlow<UserProfile?>(null)
+    private val localPersonalBooksFlow = MutableStateFlow<List<PersonalBook>>(emptyList())
+    private val localStudyNotesFlow = MutableStateFlow<List<CloudStudyNote>>(emptyList())
+
     constructor(context: Context) : this(
-        FirebaseFirestore.getInstance(
-            context.applicationContext.getString(R.string.firestore_database_id)
-        )
+        try {
+            FirebaseFirestore.getInstance(
+                context.applicationContext.getString(R.string.firestore_database_id)
+            )
+        } catch (_: Exception) {
+            null
+        }
     )
 
     private fun requireVerifiedUserId(expectedUid: String): String {
+        if (auth == null) return expectedUid
         val currentUid = auth.currentUser?.uid
             ?: throw IllegalStateException("User must be signed in with Google before accessing Firestore.")
         check(currentUid == expectedUid) { "Signed-in account changed; refusing cross-user write." }
@@ -46,7 +57,12 @@ class UserCloudRepository(
 
     fun observeUserProfile(userId: String): Flow<UserProfile?> = flow {
         require(userId.isNotBlank()) { "User ID must not be blank" }
-        val docRef = db.collection("users").document(userId)
+        val firestore = db
+        if (firestore == null) {
+            emitAll(localProfileFlow)
+            return@flow
+        }
+        val docRef = firestore.collection("users").document(userId)
         emitAll(
             docRef.snapshots()
                 .map { snapshot ->
@@ -62,7 +78,7 @@ class UserCloudRepository(
                         .firstOrNull()
                     if (firestoreError == null && error is CancellationException) throw error
                     val exceptionToLog = firestoreError ?: (error as? Exception)
-                    if (exceptionToLog != null && auth.currentUser?.uid == userId) {
+                    if (exceptionToLog != null && auth?.currentUser?.uid == userId) {
                         handleFirestoreError(exceptionToLog, OperationType.GET, docRef.path)
                     }
                     throw error
@@ -72,7 +88,12 @@ class UserCloudRepository(
 
     fun observePersonalBooks(userId: String): Flow<List<PersonalBook>> = flow {
         require(userId.isNotBlank()) { "User ID must not be blank" }
-        val colRef = db.collection("users").document(userId).collection("personal_books")
+        val firestore = db
+        if (firestore == null) {
+            emitAll(localPersonalBooksFlow)
+            return@flow
+        }
+        val colRef = firestore.collection("users").document(userId).collection("personal_books")
         emitAll(
             colRef.snapshots()
                 .map { snapshot ->
@@ -87,7 +108,7 @@ class UserCloudRepository(
                         .firstOrNull()
                     if (firestoreError == null && error is CancellationException) throw error
                     val exceptionToLog = firestoreError ?: (error as? Exception)
-                    if (exceptionToLog != null && auth.currentUser?.uid == userId) {
+                    if (exceptionToLog != null && auth?.currentUser?.uid == userId) {
                         handleFirestoreError(exceptionToLog, OperationType.LIST, colRef.path)
                     }
                     throw error
@@ -97,7 +118,12 @@ class UserCloudRepository(
 
     fun observeStudyNotes(userId: String): Flow<List<CloudStudyNote>> = flow {
         require(userId.isNotBlank()) { "User ID must not be blank" }
-        val colRef = db.collection("users").document(userId).collection("study_notes")
+        val firestore = db
+        if (firestore == null) {
+            emitAll(localStudyNotesFlow)
+            return@flow
+        }
+        val colRef = firestore.collection("users").document(userId).collection("study_notes")
         emitAll(
             colRef.snapshots()
                 .map { snapshot ->
@@ -112,7 +138,7 @@ class UserCloudRepository(
                         .firstOrNull()
                     if (firestoreError == null && error is CancellationException) throw error
                     val exceptionToLog = firestoreError ?: (error as? Exception)
-                    if (exceptionToLog != null && auth.currentUser?.uid == userId) {
+                    if (exceptionToLog != null && auth?.currentUser?.uid == userId) {
                         handleFirestoreError(exceptionToLog, OperationType.LIST, colRef.path)
                     }
                     throw error
@@ -120,9 +146,24 @@ class UserCloudRepository(
         )
     }
 
-    suspend fun ensureUserProfile(user: FirebaseUser): Result<Unit> {
-        val uid = user.uid
-        val docRef = db.collection("users").document(uid)
+    suspend fun ensureUserProfile(user: FirebaseUser?): Result<Unit> {
+        val uid = user?.uid ?: "local_student"
+        val firestore = db
+        if (firestore == null || user == null) {
+            if (localProfileFlow.value == null) {
+                localProfileFlow.value = UserProfile(
+                    id = uid,
+                    userId = uid,
+                    displayName = user?.displayName ?: "Civil Engineer",
+                    email = user?.email,
+                    photoUrl = user?.photoUrl?.toString(),
+                    studyMantra = "BS Civil Engineering · Chronological Track",
+                    curriculumYear = 1L
+                )
+            }
+            return Result.success(Unit)
+        }
+        val docRef = firestore.collection("users").document(uid)
         return try {
             requireVerifiedUserId(uid)
             val snap = docRef.get().await()
@@ -167,11 +208,17 @@ class UserCloudRepository(
         studyMantra: String,
         curriculumYear: Int
     ): Result<Unit> {
-        val docRef = db.collection("users").document(userId)
+        val cleanMantra = studyMantra.trim().take(140)
+        val clampedYear = curriculumYear.coerceIn(1, 5).toLong()
+        val firestore = db
+        if (firestore == null) {
+            val current = localProfileFlow.value ?: UserProfile(id = userId, userId = userId, displayName = "Civil Engineer")
+            localProfileFlow.value = current.copy(studyMantra = cleanMantra, curriculumYear = clampedYear)
+            return Result.success(Unit)
+        }
+        val docRef = firestore.collection("users").document(userId)
         return try {
             requireVerifiedUserId(userId)
-            val cleanMantra = studyMantra.trim().take(140)
-            val clampedYear = curriculumYear.coerceIn(1, 5).toLong()
             docRef.update(
                 mapOf(
                     "studyMantra" to cleanMantra,
@@ -194,11 +241,34 @@ class UserCloudRepository(
         existingRecord: PersonalBook?
     ): Result<Boolean> {
         val docId = sanitizeFirestoreDocId(book.id)
-        val docRef = db.collection("users").document(userId)
+        val nextBookmarked = !(existingRecord?.bookmarked ?: false)
+        val firestore = db
+        if (firestore == null) {
+            localPersonalBooksFlow.update { list ->
+                val filtered = list.filterNot { it.bookId == docId }
+                filtered + PersonalBook(
+                    id = docId,
+                    userId = userId,
+                    bookId = docId,
+                    title = book.title,
+                    author = book.author,
+                    subjectKey = book.subjectKey,
+                    courseCode = book.courseCode,
+                    coverUrl = book.coverUrl,
+                    coverArtKey = book.coverArtKey,
+                    totalPages = book.totalPages.toLong(),
+                    currentPage = book.currentPage.toLong(),
+                    bookmarked = nextBookmarked,
+                    completed = existingRecord?.completed ?: false,
+                    lastOpenedAt = book.lastOpenedAt
+                )
+            }
+            return Result.success(nextBookmarked)
+        }
+        val docRef = firestore.collection("users").document(userId)
             .collection("personal_books").document(docId)
         return try {
             requireVerifiedUserId(userId)
-            val nextBookmarked = !(existingRecord?.bookmarked ?: false)
             if (existingRecord == null) {
                 val payload = buildPersonalBookCreateMap(
                     userId = userId,
@@ -232,11 +302,34 @@ class UserCloudRepository(
         existingRecord: PersonalBook?
     ): Result<Boolean> {
         val docId = sanitizeFirestoreDocId(book.id)
-        val docRef = db.collection("users").document(userId)
+        val nextCompleted = !(existingRecord?.completed ?: false)
+        val firestore = db
+        if (firestore == null) {
+            localPersonalBooksFlow.update { list ->
+                val filtered = list.filterNot { it.bookId == docId }
+                filtered + PersonalBook(
+                    id = docId,
+                    userId = userId,
+                    bookId = docId,
+                    title = book.title,
+                    author = book.author,
+                    subjectKey = book.subjectKey,
+                    courseCode = book.courseCode,
+                    coverUrl = book.coverUrl,
+                    coverArtKey = book.coverArtKey,
+                    totalPages = book.totalPages.toLong(),
+                    currentPage = book.currentPage.toLong(),
+                    bookmarked = existingRecord?.bookmarked ?: true,
+                    completed = nextCompleted,
+                    lastOpenedAt = book.lastOpenedAt
+                )
+            }
+            return Result.success(nextCompleted)
+        }
+        val docRef = firestore.collection("users").document(userId)
             .collection("personal_books").document(docId)
         return try {
             requireVerifiedUserId(userId)
-            val nextCompleted = !(existingRecord?.completed ?: false)
             if (existingRecord == null) {
                 val payload = buildPersonalBookCreateMap(
                     userId = userId,
@@ -271,13 +364,36 @@ class UserCloudRepository(
         existingRecord: PersonalBook?
     ): Result<Unit> {
         val docId = sanitizeFirestoreDocId(book.id)
-        val docRef = db.collection("users").document(userId)
+        val clampedPage = pageNumber.coerceIn(1, 50000).toLong()
+        val clampedTotal = book.totalPages.coerceIn(0, 50000).toLong()
+        val nowMs = System.currentTimeMillis()
+        val firestore = db
+        if (firestore == null) {
+            localPersonalBooksFlow.update { list ->
+                val filtered = list.filterNot { it.bookId == docId }
+                filtered + PersonalBook(
+                    id = docId,
+                    userId = userId,
+                    bookId = docId,
+                    title = book.title,
+                    author = book.author,
+                    subjectKey = book.subjectKey,
+                    courseCode = book.courseCode,
+                    coverUrl = book.coverUrl,
+                    coverArtKey = book.coverArtKey,
+                    totalPages = clampedTotal,
+                    currentPage = clampedPage,
+                    bookmarked = existingRecord?.bookmarked ?: false,
+                    completed = existingRecord?.completed ?: false,
+                    lastOpenedAt = nowMs
+                )
+            }
+            return Result.success(Unit)
+        }
+        val docRef = firestore.collection("users").document(userId)
             .collection("personal_books").document(docId)
         return try {
             requireVerifiedUserId(userId)
-            val clampedPage = pageNumber.coerceIn(1, 50000).toLong()
-            val clampedTotal = book.totalPages.coerceIn(0, 50000).toLong()
-            val nowMs = System.currentTimeMillis()
             if (existingRecord == null) {
                 val payload = buildPersonalBookCreateMap(
                     userId = userId,
@@ -315,14 +431,30 @@ class UserCloudRepository(
         noteText: String
     ): Result<Unit> {
         val docId = sanitizeFirestoreDocId("${bookId}_p${pageNumber}")
-        val docRef = db.collection("users").document(userId)
+        val cleanTitle = bookTitle.trim().ifBlank { "Civil Engineering Volume" }.take(240)
+        val cleanChapter = chapterTitle.trim().take(180)
+        val cleanNote = noteText.trim().take(2000)
+        val clampedPage = pageNumber.coerceIn(1, 50000).toLong()
+        val firestore = db
+        if (firestore == null) {
+            localStudyNotesFlow.update { list ->
+                val filtered = list.filterNot { it.id == docId }
+                filtered + CloudStudyNote(
+                    id = docId,
+                    userId = userId,
+                    bookId = sanitizeFirestoreDocId(bookId),
+                    bookTitle = cleanTitle,
+                    pageNumber = clampedPage,
+                    chapterTitle = cleanChapter,
+                    noteText = cleanNote
+                )
+            }
+            return Result.success(Unit)
+        }
+        val docRef = firestore.collection("users").document(userId)
             .collection("study_notes").document(docId)
         return try {
             requireVerifiedUserId(userId)
-            val cleanTitle = bookTitle.trim().ifBlank { "Civil Engineering Volume" }.take(240)
-            val cleanChapter = chapterTitle.trim().take(180)
-            val cleanNote = noteText.trim().take(2000)
-            val clampedPage = pageNumber.coerceIn(1, 50000).toLong()
             val snap = docRef.get().await()
             if (!snap.exists()) {
                 docRef.set(
@@ -359,7 +491,12 @@ class UserCloudRepository(
 
     suspend fun deleteStudyNote(userId: String, noteDocId: String): Result<Unit> {
         val safeDocId = sanitizeFirestoreDocId(noteDocId)
-        val docRef = db.collection("users").document(userId)
+        val firestore = db
+        if (firestore == null) {
+            localStudyNotesFlow.update { list -> list.filterNot { it.id == safeDocId } }
+            return Result.success(Unit)
+        }
+        val docRef = firestore.collection("users").document(userId)
             .collection("study_notes").document(safeDocId)
         return try {
             requireVerifiedUserId(userId)

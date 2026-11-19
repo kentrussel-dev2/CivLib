@@ -86,7 +86,7 @@ import com.google.firebase.auth.FirebaseUser
  */
 @Composable
 fun ProfileVaultScreen(
-    currentUser: FirebaseUser,
+    currentUser: FirebaseUser?,
     userProfile: UserProfile?,
     allBooks: List<BookEntity>,
     personalSavedBooks: List<BookEntity>,
@@ -106,11 +106,11 @@ fun ProfileVaultScreen(
     var showEditProfileDialog by remember { mutableStateOf(false) }
 
     val displayName = userProfile?.displayName?.takeIf { it.isNotBlank() }
-        ?: currentUser.displayName?.takeIf { it.isNotBlank() }
-        ?: currentUser.email?.substringBefore("@")
+        ?: currentUser?.displayName?.takeIf { it.isNotBlank() }
+        ?: currentUser?.email?.substringBefore("@")
         ?: "Civil Engineer"
     val photoUrl = userProfile?.photoUrl?.takeIf { it.isNotBlank() }
-        ?: currentUser.photoUrl?.toString()
+        ?: currentUser?.photoUrl?.toString()
     val curriculumYear = (userProfile?.curriculumYear ?: 1L).toInt().coerceIn(1, 5)
     val studyMantra = userProfile?.studyMantra?.takeIf { it.isNotBlank() }
         ?: "Year $curriculumYear · BS Civil Engineering"

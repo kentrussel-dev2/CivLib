@@ -56,6 +56,7 @@ import com.example.R
 import com.example.data.firebase.CloudUiState
 import com.example.data.firebase.UserCloudRepository
 import com.example.data.firebase.authStateFlow
+import com.example.data.firebase.safeFirebaseAuthOrNull
 import com.example.data.firebase.sanitizeFirestoreDocId
 import com.example.data.firebase.signOutWithCleanup
 import com.example.data.model.CivilSubject
@@ -75,10 +76,8 @@ import com.example.ui.theme.EspressoInk
 import com.example.ui.theme.SageOlive
 import com.example.ui.theme.SandCream
 import com.example.ui.viewmodel.CivLibViewModel
-import com.google.firebase.Firebase
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.auth.FirebaseUser
-import com.google.firebase.auth.auth
 import com.google.firebase.firestore.FirebaseFirestore
 
 const val ROUTE_PROFILE = "profile"
@@ -131,21 +130,24 @@ private val TopLevelNavItems = listOf(
 fun CivLibApp(
     incomingPdfUri: Uri? = null,
     onConsumeIncomingPdf: () -> Unit = {},
-    auth: FirebaseAuth = Firebase.auth
+    auth: FirebaseAuth? = remember { safeFirebaseAuthOrNull() }
 ) {
-    val currentUser by auth.authStateFlow()
-        .collectAsStateWithLifecycle(initialValue = auth.currentUser)
+    val currentUser by remember(auth) { auth.authStateFlow() }
+        .collectAsStateWithLifecycle(initialValue = auth?.currentUser)
+    var localSessionActive by remember { mutableStateOf(auth == null) }
 
     val user = currentUser
-    if (user == null) {
-        AuthScreen(onAuthSuccess = { /* AuthStateListener updates currentUser reactively */ })
+    if (user == null && !localSessionActive) {
+        AuthScreen(onAuthSuccess = { localSessionActive = true })
     } else {
+        val sessionKey = user?.uid ?: "local_student"
         // Key by UID so switching accounts or signing out disposes Firestore listeners cleanly
-        key(user.uid) {
+        key(sessionKey) {
             AuthenticatedCivLibApp(
                 currentUser = user,
                 incomingPdfUri = incomingPdfUri,
-                onConsumeIncomingPdf = onConsumeIncomingPdf
+                onConsumeIncomingPdf = onConsumeIncomingPdf,
+                onSignedOut = { localSessionActive = false }
             )
         }
     }
@@ -153,23 +155,29 @@ fun CivLibApp(
 
 @Composable
 private fun AuthenticatedCivLibApp(
-    currentUser: FirebaseUser,
+    currentUser: FirebaseUser?,
     incomingPdfUri: Uri?,
-    onConsumeIncomingPdf: () -> Unit
+    onConsumeIncomingPdf: () -> Unit,
+    onSignedOut: () -> Unit = {}
 ) {
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
     val credentialManager = remember(context) { CredentialManager.create(context) }
+    val sessionKey = currentUser?.uid ?: "local_student"
 
     val viewModel: CivLibViewModel = viewModel(
-        key = currentUser.uid,
+        key = sessionKey,
         factory = viewModelFactory {
             initializer {
                 val app = checkNotNull(this[APPLICATION_KEY]) {
                     "APPLICATION_KEY missing from CreationExtras"
                 }
                 val databaseId = app.getString(R.string.firestore_database_id)
-                val db = FirebaseFirestore.getInstance(databaseId)
+                val db = try {
+                    FirebaseFirestore.getInstance(databaseId)
+                } catch (_: Exception) {
+                    null
+                }
                 CivLibViewModel(
                     appContext = app.applicationContext,
                     cloudRepository = UserCloudRepository(db),
@@ -239,7 +247,8 @@ private fun AuthenticatedCivLibApp(
     val handleSignOut: () -> Unit = {
         signOutWithCleanup(
             credentialManager = credentialManager,
-            scope = scope
+            scope = scope,
+            onSignOutComplete = onSignedOut
         )
     }
 

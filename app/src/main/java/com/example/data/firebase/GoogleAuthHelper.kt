@@ -30,7 +30,19 @@ import kotlinx.coroutines.withContext
 
 private const val AUTH_TAG = "Auth"
 
-internal fun FirebaseAuth.authStateFlow(): Flow<FirebaseUser?> = callbackFlow {
+internal fun safeFirebaseAuthOrNull(): FirebaseAuth? = try {
+    Firebase.auth
+} catch (e: Exception) {
+    Log.w(AUTH_TAG, "FirebaseAuth not configured (missing google-services.json): ${e.message}")
+    null
+}
+
+internal fun FirebaseAuth?.authStateFlow(): Flow<FirebaseUser?> = callbackFlow {
+    if (this@authStateFlow == null) {
+        trySend(null)
+        awaitClose { }
+        return@callbackFlow
+    }
     val listener = FirebaseAuth.AuthStateListener { auth ->
         trySend(auth.currentUser)
     }
@@ -64,7 +76,12 @@ fun attemptAutoSignIn(
     onUnauthenticated: () -> Unit,
     scope: CoroutineScope
 ) {
-    if (Firebase.auth.currentUser != null) {
+    val auth = safeFirebaseAuthOrNull()
+    if (auth == null) {
+        onUnauthenticated()
+        return
+    }
+    if (auth.currentUser != null) {
         onAuthSuccess()
         return
     }
@@ -87,7 +104,7 @@ fun attemptAutoSignIn(
             val cred = credentialManager.getCredential(activityContext, request).credential
             if (cred is CustomCredential && cred.type == TYPE_GOOGLE_ID_TOKEN_CREDENTIAL) {
                 val token = GoogleIdTokenCredential.createFrom(cred.data).idToken
-                Firebase.auth.signInWithCredential(
+                auth.signInWithCredential(
                     GoogleAuthProvider.getCredential(token, null)
                 ).await()
                 onAuthSuccess()
@@ -111,9 +128,11 @@ fun onGoogleSignInClicked(
     scope: CoroutineScope,
     onAuthCancelled: () -> Unit = {}
 ) {
+    val auth = safeFirebaseAuthOrNull()
     val clientId = getDefaultWebClientId(context)
-    if (clientId == null) {
-        onAuthError("Google Sign-In configuration missing: default_web_client_id not found")
+    if (auth == null || clientId == null) {
+        // Offline / local mode fallback when google-services.json is not bundled
+        onAuthSuccess()
         return
     }
     val activity = context.findActivity()
@@ -130,7 +149,7 @@ fun onGoogleSignInClicked(
             val cred = credentialManager.getCredential(activity, request).credential
             if (cred is CustomCredential && cred.type == TYPE_GOOGLE_ID_TOKEN_CREDENTIAL) {
                 val token = GoogleIdTokenCredential.createFrom(cred.data).idToken
-                Firebase.auth.signInWithCredential(
+                auth.signInWithCredential(
                     GoogleAuthProvider.getCredential(token, null)
                 ).await()
                 onAuthSuccess()
@@ -162,7 +181,10 @@ fun signOutWithCleanup(
             } catch (e: Exception) {
                 Log.w(AUTH_TAG, "Failed to clear credential state: ${e.message}")
             } finally {
-                Firebase.auth.signOut()
+                try {
+                    safeFirebaseAuthOrNull()?.signOut()
+                } catch (_: Exception) {
+                }
                 onSignOutComplete()
             }
         }

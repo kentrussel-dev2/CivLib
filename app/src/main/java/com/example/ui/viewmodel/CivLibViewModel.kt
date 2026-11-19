@@ -74,10 +74,10 @@ data class SearchUiState(
 class CivLibViewModel(
     appContext: Context,
     private val cloudRepository: UserCloudRepository,
-    private val currentUser: FirebaseUser
+    private val currentUser: FirebaseUser? = null
 ) : ViewModel() {
 
-    private val currentUserId: String = currentUser.uid
+    private val currentUserId: String = currentUser?.uid ?: "local_student"
     private val context = appContext.applicationContext
     private val database = CivLibDatabase.getInstance(context)
     val repository = BookRepository(context, database.civLibDao())
