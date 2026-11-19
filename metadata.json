@@ -1,0 +1,6 @@
+{
+  "name": "CivLib",
+  "description": "An offline-capable civil engineering college book reviewer and free technical library repository organized by course subject, title, and author, featuring ISBN and keyword search across Open Library and Project Gutenberg plus animated 3D page-turning reading.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

@@ -1,0 +1,197 @@
+{
+  "entities": {
+    "UserProfile": {
+      "title": "UserProfile",
+      "description": "Authenticated Civil Engineering student profile synced to their Google account",
+      "type": "object",
+      "properties": {
+        "userId": {
+          "type": "string",
+          "description": "Firebase Auth UID matching the document ID"
+        },
+        "displayName": {
+          "type": "string",
+          "description": "Student full name from Google profile"
+        },
+        "email": {
+          "type": "string",
+          "format": "email",
+          "description": "Owner-only Google account email address"
+        },
+        "photoUrl": {
+          "type": "string",
+          "description": "Optional Google profile avatar URL"
+        },
+        "studyMantra": {
+          "type": "string",
+          "description": "Personal study motto or civil engineering track subtitle"
+        },
+        "curriculumYear": {
+          "type": "integer",
+          "description": "Current college curriculum year (1 to 5)"
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Server timestamp set via FieldValue.serverTimestamp()"
+        },
+        "updatedAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Server timestamp set via FieldValue.serverTimestamp()"
+        }
+      },
+      "required": ["userId", "displayName", "curriculumYear", "createdAt", "updatedAt"]
+    },
+    "PersonalBook": {
+      "title": "PersonalBook",
+      "description": "User-specific bookmarked textbook entry and synced reading progress",
+      "type": "object",
+      "properties": {
+        "userId": {
+          "type": "string",
+          "description": "Owner Firebase Auth UID"
+        },
+        "bookId": {
+          "type": "string",
+          "description": "Catalog book identifier matching the document ID"
+        },
+        "title": {
+          "type": "string",
+          "description": "Textbook title"
+        },
+        "author": {
+          "type": "string",
+          "description": "Textbook author(s)"
+        },
+        "subjectKey": {
+          "type": "string",
+          "description": "CivilSubject enum name"
+        },
+        "courseCode": {
+          "type": "string",
+          "description": "Chronological curriculum course code such as CE 101"
+        },
+        "coverUrl": {
+          "type": "string",
+          "description": "Optional cover image URL"
+        },
+        "coverArtKey": {
+          "type": "string",
+          "description": "Fallback cover art key"
+        },
+        "totalPages": {
+          "type": "integer",
+          "description": "Total textbook page count"
+        },
+        "currentPage": {
+          "type": "integer",
+          "description": "Last visited page number"
+        },
+        "bookmarked": {
+          "type": "boolean",
+          "description": "Whether the book is saved in the user's personal Bookmarks library"
+        },
+        "completed": {
+          "type": "boolean",
+          "description": "Whether the student marked this course textbook completed"
+        },
+        "lastOpenedAt": {
+          "type": "integer",
+          "description": "Epoch milliseconds when last read"
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Server timestamp set via FieldValue.serverTimestamp()"
+        },
+        "updatedAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Server timestamp set via FieldValue.serverTimestamp()"
+        }
+      },
+      "required": [
+        "userId",
+        "bookId",
+        "title",
+        "author",
+        "subjectKey",
+        "courseCode",
+        "coverArtKey",
+        "totalPages",
+        "currentPage",
+        "bookmarked",
+        "completed",
+        "lastOpenedAt",
+        "createdAt",
+        "updatedAt"
+      ]
+    },
+    "StudyNote": {
+      "title": "StudyNote",
+      "description": "Cloud-synced page bookmark or exam review note authored by the signed-in student",
+      "type": "object",
+      "properties": {
+        "userId": {
+          "type": "string",
+          "description": "Owner Firebase Auth UID"
+        },
+        "bookId": {
+          "type": "string",
+          "description": "Referenced textbook ID"
+        },
+        "bookTitle": {
+          "type": "string",
+          "description": "Referenced textbook title"
+        },
+        "pageNumber": {
+          "type": "integer",
+          "description": "1-based textbook page number"
+        },
+        "chapterTitle": {
+          "type": "string",
+          "description": "Chapter or section label"
+        },
+        "noteText": {
+          "type": "string",
+          "description": "Optional study note or formula reminder"
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Server timestamp set via FieldValue.serverTimestamp()"
+        },
+        "updatedAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Server timestamp set via FieldValue.serverTimestamp()"
+        }
+      },
+      "required": [
+        "userId",
+        "bookId",
+        "bookTitle",
+        "pageNumber",
+        "chapterTitle",
+        "noteText",
+        "createdAt",
+        "updatedAt"
+      ]
+    }
+  },
+  "firestore": {
+    "/users/{userId}": {
+      "schema": { "$ref": "#/entities/UserProfile" },
+      "description": "Owner-isolated student profile with Google account details and curriculum year"
+    },
+    "/users/{userId}/personal_books/{bookId}": {
+      "schema": { "$ref": "#/entities/PersonalBook" },
+      "description": "User's personal bookmarked library, reading progress, and course completion records"
+    },
+    "/users/{userId}/study_notes/{noteId}": {
+      "schema": { "$ref": "#/entities/StudyNote" },
+      "description": "User's cloud-synced page bookmarks and civil engineering study notes"
+    }
+  }
+}

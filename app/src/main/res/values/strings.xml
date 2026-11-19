@@ -1,0 +1,22 @@
+<resources>
+    <string name="app_name">CivLib</string>
+    <string name="library_title">CivLib</string>
+    <string name="library_subtitle">Civil Engineering Free Book Repository</string>
+    <string name="nav_library">Library</string>
+    <string name="nav_discover">Search</string>
+    <string name="nav_offline">Offline</string>
+    <string name="search_placeholder">Search ISBN, title, author, or topic…</string>
+    <string name="status_online">Online</string>
+    <string name="status_offline">Offline</string>
+    <string name="continue_reading">Continue Reading</string>
+    <string name="open_book">Open Book</string>
+    <string name="save_offline">Save Offline</string>
+    <string name="saved_offline">Saved Offline</string>
+    <string name="remove_offline">Remove Download</string>
+    <string name="table_of_contents">Table of Contents</string>
+    <string name="bookmarks_and_notes">Bookmarks &amp; Review Notes</string>
+    <string name="empty_search_title">Explore Civil Engineering References</string>
+    <string name="empty_search_hint">Enter an ISBN-10/13 (e.g. 9780134610672) or keywords like reinforced concrete, hydraulics, or soil mechanics.</string>
+    <string name="empty_offline_title">No Downloaded External Books Yet</string>
+    <string name="empty_offline_hint">Core civil engineering compendia are pre-loaded offline. Save more from Search to study anywhere.</string>
+</resources>
