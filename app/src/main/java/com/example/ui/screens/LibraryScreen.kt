@@ -79,10 +79,17 @@ import com.example.ui.theme.SandCreamLight
 import com.example.ui.theme.SandCreamMuted
 import com.example.ui.viewmodel.LibraryUiState
 
+import androidx.compose.foundation.text.BasicTextField
+import androidx.compose.material.icons.filled.Clear
+import androidx.compose.material.icons.filled.Search
+import androidx.compose.ui.graphics.SolidColor
+import androidx.compose.ui.text.TextStyle
+
 /**
  * 1-to-1 Layout Twin of "My Library" with Full Civil Engineering Categories & Chronological Roadmap:
  * - Warm Espresso background (#4D3C36)
  * - Header: Left "Back", Center "My Library", Right "Filter"
+ * - Built-in instant search bar for existing books inside the library
  * - 4 oval-pill icon buttons (active Sand-Cream, inactive Olive-Sage):
  *   1. All 9 Subject Categories (Year 1 -> Year 4)
  *   2. Chronological Reading Roadmap (Year 1 CE 101 -> Year 4 CE 408 with Up Next tracking)
@@ -113,14 +120,37 @@ fun LibraryScreen(
     // 0 = 9 Subject Categories Grid, 1 = Chronological Curriculum Order (Year 1->4), 2 = Offline PDFs
     var activePillIndex by rememberSaveable { mutableIntStateOf(0) }
     var showFilterMenu by remember { mutableStateOf(false) }
+    var localSearchQuery by rememberSaveable { mutableStateOf("") }
 
-    val showingSubjectsGrid = activePillIndex == 0 && uiState.selectedSubject == null
-    val showingChronologicalList = activePillIndex == 1 && uiState.selectedSubject == null
+    val isSearchingLocal = localSearchQuery.trim().isNotEmpty()
+    val showingSubjectsGrid = !isSearchingLocal && activePillIndex == 0 && uiState.selectedSubject == null
+    val showingChronologicalList = !isSearchingLocal && activePillIndex == 1 && uiState.selectedSubject == null
 
-    val displayedBooks = remember(uiState.filteredBooks, activePillIndex) {
-        when (activePillIndex) {
-            2 -> uiState.filteredBooks.filter { it.isOfflineAvailable }
-            else -> uiState.filteredBooks
+    val displayedBooks = remember(uiState.books, uiState.filteredBooks, activePillIndex, localSearchQuery) {
+        val q = localSearchQuery.trim()
+        val basePool = if (q.isNotEmpty() && uiState.selectedSubject == null) {
+            if (activePillIndex == 2) uiState.books.filter { it.isOfflineAvailable } else uiState.books
+        } else {
+            when (activePillIndex) {
+                2 -> uiState.filteredBooks.filter { it.isOfflineAvailable }
+                else -> uiState.filteredBooks
+            }
+        }
+        if (q.isEmpty()) {
+            basePool
+        } else {
+            val tokens = q.lowercase().split(Regex("\\s+")).filter { it.isNotBlank() }
+            val compactQ = q.lowercase().replace(" ", "").replace("-", "")
+            basePool.filter { book ->
+                val subj = CivilSubject.fromKey(book.subjectKey)
+                val haystack = "${book.title} ${book.author} ${book.courseCode} ${subj.shortName} ${subj.displayName} year ${subj.curriculumYear} y${subj.curriculumYear} ${book.isbn} ${book.description}".lowercase()
+                val compactHaystack = haystack.replace(" ", "").replace("-", "")
+                tokens.all { tok -> haystack.contains(tok) } || compactHaystack.contains(compactQ)
+            }.sortedWith(
+                compareByDescending<BookEntity> { it.title.contains(q, ignoreCase = true) }
+                    .thenByDescending { it.courseCode.replace(" ", "").contains(compactQ, ignoreCase = true) }
+                    .thenByDescending { it.isOfflineAvailable }
+            )
         }
     }
 
@@ -145,7 +175,9 @@ fun LibraryScreen(
                 color = SandCreamLight.copy(alpha = 0.88f),
                 modifier = Modifier
                     .clickable {
-                        if (uiState.selectedSubject != null) {
+                        if (localSearchQuery.isNotEmpty()) {
+                            localSearchQuery = ""
+                        } else if (uiState.selectedSubject != null) {
                             onSelectSubject(null)
                         } else if (activePillIndex != 0) {
                             activePillIndex = 0
@@ -216,7 +248,72 @@ fun LibraryScreen(
             }
         }
 
-        Spacer(modifier = Modifier.height(6.dp))
+        // Instant Local Books Search Pill Bar
+        Surface(
+            shape = RoundedCornerShape(999.dp),
+            color = SandCream,
+            shadowElevation = 2.dp,
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 20.dp)
+                .height(42.dp)
+        ) {
+            Row(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .padding(horizontal = 14.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Icon(
+                    imageVector = Icons.Filled.Search,
+                    contentDescription = "Search library books",
+                    tint = EspressoInk,
+                    modifier = Modifier.size(18.dp)
+                )
+                Spacer(modifier = Modifier.width(8.dp))
+                Box(modifier = Modifier.weight(1f), contentAlignment = Alignment.CenterStart) {
+                    if (localSearchQuery.isEmpty()) {
+                        Text(
+                            text = "Search books inside library (title, CE code, subject)…",
+                            fontFamily = PlusJakartaFontFamily,
+                            fontSize = 12.5.sp,
+                            color = EspressoInk.copy(alpha = 0.6f),
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis
+                        )
+                    }
+                    BasicTextField(
+                        value = localSearchQuery,
+                        onValueChange = { localSearchQuery = it },
+                        singleLine = true,
+                        cursorBrush = SolidColor(EspressoInk),
+                        textStyle = TextStyle(
+                            fontFamily = PlusJakartaFontFamily,
+                            fontSize = 13.sp,
+                            color = EspressoInk
+                        ),
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .testTag("library_instant_search_field")
+                    )
+                }
+                if (localSearchQuery.isNotEmpty()) {
+                    IconButton(
+                        onClick = { localSearchQuery = "" },
+                        modifier = Modifier.size(28.dp)
+                    ) {
+                        Icon(
+                            imageVector = Icons.Filled.Clear,
+                            contentDescription = "Clear search",
+                            tint = EspressoInk,
+                            modifier = Modifier.size(16.dp)
+                        )
+                    }
+                }
+            }
+        }
+
+        Spacer(modifier = Modifier.height(12.dp))
 
         // 2. Four Oval-Pill Icon Buttons Row (Categories, Chronological Order, Offline, Import)
         Row(
@@ -269,7 +366,7 @@ fun LibraryScreen(
             )
         }
 
-        Spacer(modifier = Modifier.height(18.dp))
+        Spacer(modifier = Modifier.height(16.dp))
 
         // 3. Content Area: 9-Category Poster Grid OR Chronological Year 1-4 Roadmap OR Subject Books Grid
         LazyVerticalGrid(

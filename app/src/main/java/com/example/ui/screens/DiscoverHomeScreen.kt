@@ -111,19 +111,23 @@ fun DiscoverHomeScreen(
 ) {
     val focusManager = LocalFocusManager.current
     val preferredYear = (userProfile?.curriculumYear ?: 1L).toInt().coerceIn(1, 4)
-    val preferredSubjectKey = userProfile?.primarySubjectKey.orEmpty()
 
-    val personalizedBooks = remember(libraryState.books, preferredYear, preferredSubjectKey) {
+    val personalizedBooks = remember(libraryState.books, userProfile, preferredYear) {
         if (userProfile == null) {
             libraryState.books
         } else {
+            val chosenKeys = userProfile.effectiveSubjectKeys
             libraryState.books.sortedWith(
-                compareBy<BookEntity>(
-                    { if (preferredSubjectKey.isNotBlank() && it.subjectKey.equals(preferredSubjectKey, ignoreCase = true)) 0 else 1 },
-                    { if (CivilSubject.fromKey(it.subjectKey).curriculumYear == preferredYear) 0 else 1 },
-                    { CivilSubject.fromKey(it.subjectKey).sequenceOrder },
-                    { it.courseCode }
-                )
+                compareByDescending<BookEntity> { book ->
+                    com.example.data.firebase.scoreBookForProfile(book, userProfile)
+                }.thenBy { book ->
+                    val idx = chosenKeys.indexOfFirst { it.equals(book.subjectKey, ignoreCase = true) }
+                    if (idx >= 0) idx else 99
+                }.thenBy { book ->
+                    if (CivilSubject.fromKey(book.subjectKey).curriculumYear == preferredYear) 0 else 1
+                }.thenBy { book ->
+                    CivilSubject.fromKey(book.subjectKey).sequenceOrder
+                }.thenBy { it.courseCode }
             )
         }
     }
@@ -135,7 +139,8 @@ fun DiscoverHomeScreen(
         if (personalizedBooks.size > 3) personalizedBooks.drop(1) + personalizedBooks.first()
         else personalizedBooks
     }
-    val showSearchResults = searchState.query.isNotBlank() && (searchState.hasSearched || searchState.isSearching)
+    // Show instant local search results immediately as soon as the user types in the search bar
+    val showSearchResults = searchState.query.isNotBlank()
 
     val filteredRemote = remember(searchState.remoteResults, searchState.sourceFilter) {
         when (searchState.sourceFilter) {
@@ -245,61 +250,75 @@ fun DiscoverHomeScreen(
                 Spacer(modifier = Modifier.height(14.dp))
             }
 
-            if (searchState.isSearching) {
-                item(key = "searching_spinner") {
-                    Box(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(vertical = 36.dp),
-                        contentAlignment = Alignment.Center
-                    ) {
-                        Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                            CircularProgressIndicator(color = SandCream, strokeWidth = 2.5.dp)
-                            Spacer(modifier = Modifier.height(10.dp))
+            // ALWAYS show existing books inside the library FIRST without waiting for network
+            if (searchState.localResults.isNotEmpty() &&
+                (searchState.sourceFilter == SearchSourceFilter.ALL || searchState.sourceFilter == SearchSourceFilter.LOCAL)
+            ) {
+                item(key = "local_hits_header") {
+                    Text(
+                        text = "Books in Your Library (${searchState.localResults.size})",
+                        fontFamily = PlayfairDisplayFontFamily,
+                        fontWeight = FontWeight.SemiBold,
+                        fontSize = 19.sp,
+                        color = SandCreamLight,
+                        modifier = Modifier.padding(horizontal = 20.dp, vertical = 6.dp)
+                    )
+                }
+                items(searchState.localResults, key = { "home_local_${it.id}" }) { localBook ->
+                    HomeLocalSearchRow(
+                        book = localBook,
+                        onClick = {
+                            if (localBook.isOfflineAvailable) onQuickReadBook(localBook.id, localBook.currentPage)
+                            else onBookClick(localBook.id)
+                        },
+                        modifier = Modifier.padding(horizontal = 20.dp, vertical = 5.dp)
+                    )
+                }
+            } else if (searchState.sourceFilter == SearchSourceFilter.ALL || searchState.sourceFilter == SearchSourceFilter.LOCAL) {
+                item(key = "no_local_hits") {
+                    Text(
+                        text = "No existing books in your local library matched \"${searchState.query}\".",
+                        fontFamily = DmSansFontFamily,
+                        fontSize = 13.sp,
+                        color = SandCreamMuted,
+                        modifier = Modifier.padding(horizontal = 20.dp, vertical = 8.dp)
+                    )
+                }
+            }
+
+            // Below existing local books: show online search results, loading spinner, or button to search online archives
+            if (searchState.sourceFilter != SearchSourceFilter.LOCAL) {
+                if (searchState.isSearching) {
+                    item(key = "searching_spinner") {
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(horizontal = 20.dp, vertical = 18.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.Center
+                        ) {
+                            CircularProgressIndicator(
+                                color = SandCream,
+                                strokeWidth = 2.dp,
+                                modifier = Modifier.size(18.dp)
+                            )
+                            Spacer(modifier = Modifier.width(10.dp))
                             Text(
-                                text = "Searching Internet Archive, OAPEN, DOAB & Open Library…",
+                                text = "Also searching online archives (Internet Archive, OAPEN, Open Library)…",
                                 style = MaterialTheme.typography.bodySmall,
-                                color = SandCreamMuted,
-                                textAlign = TextAlign.Center
+                                color = SandCreamMuted
                             )
                         }
                     }
-                }
-            } else {
-                if (searchState.localResults.isNotEmpty() &&
-                    (searchState.sourceFilter == SearchSourceFilter.ALL || searchState.sourceFilter == SearchSourceFilter.LOCAL)
-                ) {
-                    item(key = "local_hits_header") {
-                        Text(
-                            text = "In Your Library (${searchState.localResults.size})",
-                            fontFamily = PlayfairDisplayFontFamily,
-                            fontWeight = FontWeight.SemiBold,
-                            fontSize = 19.sp,
-                            color = SandCreamLight,
-                            modifier = Modifier.padding(horizontal = 20.dp, vertical = 6.dp)
-                        )
-                    }
-                    items(searchState.localResults, key = { "home_local_${it.id}" }) { localBook ->
-                        HomeLocalSearchRow(
-                            book = localBook,
-                            onClick = {
-                                if (localBook.isOfflineAvailable) onQuickReadBook(localBook.id, localBook.currentPage)
-                                else onBookClick(localBook.id)
-                            },
-                            modifier = Modifier.padding(horizontal = 20.dp, vertical = 5.dp)
-                        )
-                    }
-                }
-
-                if (filteredRemote.isNotEmpty()) {
+                } else if (filteredRemote.isNotEmpty()) {
                     item(key = "remote_hits_header") {
                         Text(
-                            text = "Open-Access Repositories (${filteredRemote.size})",
+                            text = "Open-Access Online Repositories (${filteredRemote.size})",
                             fontFamily = PlayfairDisplayFontFamily,
                             fontWeight = FontWeight.SemiBold,
                             fontSize = 19.sp,
                             color = SandCreamLight,
-                            modifier = Modifier.padding(start = 20.dp, end = 20.dp, top = 12.dp, bottom = 6.dp)
+                            modifier = Modifier.padding(start = 20.dp, end = 20.dp, top = 14.dp, bottom = 6.dp)
                         )
                     }
                     items(filteredRemote, key = { "home_remote_${it.id}" }) { remote ->
@@ -312,16 +331,43 @@ fun DiscoverHomeScreen(
                             modifier = Modifier.padding(horizontal = 20.dp, vertical = 5.dp)
                         )
                     }
-                }
-
-                if (searchState.localResults.isEmpty() && filteredRemote.isEmpty()) {
-                    item(key = "no_hits") {
-                        Text(
-                            text = "No matching Civil Engineering books found. Try an ISBN or keywords like 'structural', 'soil mechanics', or 'hydraulics'.",
-                            style = MaterialTheme.typography.bodyMedium,
-                            color = SandCreamMuted,
-                            modifier = Modifier.padding(horizontal = 20.dp, vertical = 20.dp)
-                        )
+                } else {
+                    item(key = "trigger_online_search_button") {
+                        Box(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(horizontal = 20.dp, vertical = 12.dp),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Surface(
+                                onClick = {
+                                    focusManager.clearFocus()
+                                    onExecuteSearch(null)
+                                },
+                                shape = RoundedCornerShape(999.dp),
+                                color = EspressoCard
+                            ) {
+                                Row(
+                                    modifier = Modifier.padding(horizontal = 16.dp, vertical = 10.dp),
+                                    verticalAlignment = Alignment.CenterVertically
+                                ) {
+                                    Icon(
+                                        imageVector = Icons.Filled.Search,
+                                        contentDescription = null,
+                                        tint = SandCream,
+                                        modifier = Modifier.size(16.dp)
+                                    )
+                                    Spacer(modifier = Modifier.width(8.dp))
+                                    Text(
+                                        text = "Search Online Open-Access Archives for \"${searchState.query}\"",
+                                        fontFamily = DmSansFontFamily,
+                                        fontWeight = FontWeight.SemiBold,
+                                        fontSize = 12.5.sp,
+                                        color = SandCreamLight
+                                    )
+                                }
+                            }
+                        }
                     }
                 }
             }

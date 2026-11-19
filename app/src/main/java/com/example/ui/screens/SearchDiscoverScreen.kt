@@ -264,26 +264,7 @@ fun SearchDiscoverScreen(
             }
         }
 
-        if (searchState.isSearching) {
-            item(key = "loading_indicator") {
-                Box(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(vertical = 42.dp),
-                    contentAlignment = Alignment.Center
-                ) {
-                    Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                        CircularProgressIndicator(strokeWidth = 2.dp)
-                        Spacer(modifier = Modifier.height(14.dp))
-                        Text(
-                            text = "QUERYING OPEN-ACCESS ARCHIVES…",
-                            style = MaterialTheme.typography.labelSmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
-                        )
-                    }
-                }
-            }
-        } else if (!searchState.hasSearched) {
+        if (searchState.query.isBlank() && !searchState.hasSearched && !searchState.isSearching) {
             item(key = "quick_topics_editorial") {
                 Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
                     HorizontalDivider(thickness = 0.75.dp, color = MaterialTheme.colorScheme.outlineVariant)
@@ -340,7 +321,26 @@ fun SearchDiscoverScreen(
                 }
             }
 
-            if (filteredRemote.isNotEmpty()) {
+            if (searchState.isSearching) {
+                item(key = "loading_indicator") {
+                    Box(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(vertical = 24.dp),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                            CircularProgressIndicator(strokeWidth = 2.dp)
+                            Spacer(modifier = Modifier.height(10.dp))
+                            Text(
+                                text = "QUERYING OPEN-ACCESS ARCHIVES…",
+                                style = MaterialTheme.typography.labelSmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        }
+                    }
+                }
+            } else if (filteredRemote.isNotEmpty()) {
                 item(key = "remote_section_title") {
                     Column {
                         HorizontalDivider(thickness = 1.dp, color = MaterialTheme.colorScheme.outline)
@@ -363,7 +363,10 @@ fun SearchDiscoverScreen(
                 }
             }
 
-            if ((if (showLocal) searchState.localResults.isEmpty() else true) && filteredRemote.isEmpty()) {
+            if (!searchState.isSearching &&
+                (if (showLocal) searchState.localResults.isEmpty() else true) &&
+                filteredRemote.isEmpty()
+            ) {
                 item(key = "no_matches") {
                     Column(
                         modifier = Modifier

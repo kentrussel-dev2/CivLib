@@ -38,8 +38,8 @@ class UserCloudRepository(
         ?.getSharedPreferences("civlib_student_profile_prefs", Context.MODE_PRIVATE)
 
     private val localProfileFlow = MutableStateFlow<UserProfile?>(loadPersistedLocalProfile())
-    private val localPersonalBooksFlow = MutableStateFlow<List<PersonalBook>>(emptyList())
-    private val localStudyNotesFlow = MutableStateFlow<List<CloudStudyNote>>(emptyList())
+    private val localPersonalBooksFlow = MutableStateFlow<List<PersonalBook>>(loadPersistedPersonalBooks())
+    private val localStudyNotesFlow = MutableStateFlow<List<CloudStudyNote>>(loadPersistedStudyNotes())
 
     constructor(context: Context) : this(
         db = try {
@@ -63,7 +63,13 @@ class UserCloudRepository(
             ?: "BS Civil Engineering · Chronological Track"
         val year = sp.getLong("curriculum_year", 1L).coerceIn(1L, 4L)
         val subjectKey = sp.getString("primary_subject_key", "MECHANICS") ?: "MECHANICS"
+        val subjectKeysRaw = sp.getString("selected_subject_keys", subjectKey).orEmpty()
+        val subjectKeys = subjectKeysRaw.split("|").map { it.trim() }.filter { it.isNotBlank() }
+            .ifEmpty { listOf(subjectKey) }
         val goal = sp.getString("study_goal", "Current Semester Courses") ?: "Current Semester Courses"
+        val goalsRaw = sp.getString("selected_goals", goal).orEmpty()
+        val goals = goalsRaw.split("|").map { it.trim() }.filter { it.isNotBlank() }
+            .ifEmpty { listOf(goal) }
         return UserProfile(
             id = uid,
             userId = uid,
@@ -71,8 +77,10 @@ class UserCloudRepository(
             email = email,
             studyMantra = mantra,
             curriculumYear = year,
-            primarySubjectKey = subjectKey,
-            studyGoal = goal,
+            primarySubjectKey = subjectKeys.first(),
+            selectedSubjectKeys = subjectKeys,
+            studyGoal = goals.first(),
+            selectedGoals = goals,
             onboardingCompleted = true
         )
     }
@@ -83,6 +91,8 @@ class UserCloudRepository(
             sp.edit().putBoolean("onboarding_completed", false).apply()
             return
         }
+        val subjects = profile.effectiveSubjectKeys
+        val goals = profile.effectiveStudyGoals
         sp.edit()
             .putBoolean("onboarding_completed", profile.onboardingCompleted)
             .putString("user_id", profile.userId)
@@ -90,9 +100,113 @@ class UserCloudRepository(
             .putString("email", profile.email)
             .putString("study_mantra", profile.studyMantra)
             .putLong("curriculum_year", profile.curriculumYear)
-            .putString("primary_subject_key", profile.primarySubjectKey)
-            .putString("study_goal", profile.studyGoal)
+            .putString("primary_subject_key", subjects.first())
+            .putString("selected_subject_keys", subjects.joinToString("|"))
+            .putString("study_goal", goals.first())
+            .putString("selected_goals", goals.joinToString("|"))
             .apply()
+    }
+
+    private fun loadPersistedPersonalBooks(): List<PersonalBook> {
+        val raw = prefs?.getString("cached_personal_books_json", null) ?: return emptyList()
+        return runCatching {
+            val arr = org.json.JSONArray(raw)
+            buildList {
+                for (i in 0 until arr.length()) {
+                    val obj = arr.optJSONObject(i) ?: continue
+                    val bId = obj.optString("bookId").takeIf { it.isNotBlank() } ?: continue
+                    add(
+                        PersonalBook(
+                            id = obj.optString("id", bId),
+                            userId = obj.optString("userId", "local_student"),
+                            bookId = bId,
+                            title = obj.optString("title", ""),
+                            author = obj.optString("author", ""),
+                            subjectKey = obj.optString("subjectKey", "STRUCTURAL"),
+                            courseCode = obj.optString("courseCode", ""),
+                            coverUrl = obj.optString("coverUrl", "").takeIf { it.isNotBlank() },
+                            coverArtKey = obj.optString("coverArtKey", "structural"),
+                            totalPages = obj.optLong("totalPages", 0L),
+                            currentPage = obj.optLong("currentPage", 1L),
+                            bookmarked = obj.optBoolean("bookmarked", false),
+                            completed = obj.optBoolean("completed", false),
+                            lastOpenedAt = obj.optLong("lastOpenedAt", 0L)
+                        )
+                    )
+                }
+            }
+        }.getOrDefault(emptyList())
+    }
+
+    private fun persistPersonalBooks(list: List<PersonalBook>) {
+        val sp = prefs ?: return
+        runCatching {
+            val arr = org.json.JSONArray()
+            for (item in list) {
+                val obj = org.json.JSONObject().apply {
+                    put("id", item.id)
+                    put("userId", item.userId)
+                    put("bookId", item.bookId)
+                    put("title", item.title)
+                    put("author", item.author)
+                    put("subjectKey", item.subjectKey)
+                    put("courseCode", item.courseCode)
+                    if (!item.coverUrl.isNullOrBlank()) put("coverUrl", item.coverUrl)
+                    put("coverArtKey", item.coverArtKey)
+                    put("totalPages", item.totalPages)
+                    put("currentPage", item.currentPage)
+                    put("bookmarked", item.bookmarked)
+                    put("completed", item.completed)
+                    put("lastOpenedAt", item.lastOpenedAt)
+                }
+                arr.put(obj)
+            }
+            sp.edit().putString("cached_personal_books_json", arr.toString()).apply()
+        }
+    }
+
+    private fun loadPersistedStudyNotes(): List<CloudStudyNote> {
+        val raw = prefs?.getString("cached_study_notes_json", null) ?: return emptyList()
+        return runCatching {
+            val arr = org.json.JSONArray(raw)
+            buildList {
+                for (i in 0 until arr.length()) {
+                    val obj = arr.optJSONObject(i) ?: continue
+                    val id = obj.optString("id").takeIf { it.isNotBlank() } ?: continue
+                    add(
+                        CloudStudyNote(
+                            id = id,
+                            userId = obj.optString("userId", "local_student"),
+                            bookId = obj.optString("bookId", ""),
+                            bookTitle = obj.optString("bookTitle", ""),
+                            pageNumber = obj.optLong("pageNumber", 1L),
+                            chapterTitle = obj.optString("chapterTitle", ""),
+                            noteText = obj.optString("noteText", "")
+                        )
+                    )
+                }
+            }
+        }.getOrDefault(emptyList())
+    }
+
+    private fun persistStudyNotes(list: List<CloudStudyNote>) {
+        val sp = prefs ?: return
+        runCatching {
+            val arr = org.json.JSONArray()
+            for (note in list) {
+                val obj = org.json.JSONObject().apply {
+                    put("id", note.id)
+                    put("userId", note.userId)
+                    put("bookId", note.bookId)
+                    put("bookTitle", note.bookTitle)
+                    put("pageNumber", note.pageNumber)
+                    put("chapterTitle", note.chapterTitle)
+                    put("noteText", note.noteText)
+                }
+                arr.put(obj)
+            }
+            sp.edit().putString("cached_study_notes_json", arr.toString()).apply()
+        }
     }
 
     fun isLocalOnboardingCompleted(): Boolean {
@@ -100,8 +214,7 @@ class UserCloudRepository(
     }
 
     fun clearLocalSession() {
-        localProfileFlow.value = null
-        prefs?.edit()?.putBoolean("onboarding_completed", false)?.apply()
+        // Keep session always active for offline study cache
     }
 
     private fun requireVerifiedUserId(expectedUid: String): String {
@@ -260,13 +373,21 @@ class UserCloudRepository(
         curriculumYear: Int,
         primarySubjectKey: String,
         studyGoal: String,
-        studyMantra: String
+        studyMantra: String,
+        selectedSubjectKeys: List<String> = listOf(primarySubjectKey),
+        selectedGoals: List<String> = listOf(studyGoal)
     ): Result<UserProfile> {
         val cleanName = displayName.trim().ifBlank { "Civil Engineer" }.take(80)
         val cleanEmail = email?.trim()?.takeIf { it.isNotBlank() }?.take(120)
         val clampedYear = curriculumYear.coerceIn(1, 5).toLong()
-        val cleanSubject = primarySubjectKey.trim().ifBlank { "MECHANICS" }.take(40)
-        val cleanGoal = studyGoal.trim().ifBlank { "Current Semester Courses" }.take(80)
+        val cleanSubjects = selectedSubjectKeys.map { it.trim() }.filter { it.isNotBlank() }
+            .ifEmpty { listOf(primarySubjectKey.trim().ifBlank { "MECHANICS" }) }
+            .distinct()
+        val cleanSubject = cleanSubjects.first().take(40)
+        val cleanGoals = selectedGoals.map { it.trim() }.filter { it.isNotBlank() }
+            .ifEmpty { listOf(studyGoal.trim().ifBlank { "Current Semester Courses" }) }
+            .distinct()
+        val cleanGoal = cleanGoals.first().take(80)
         val cleanMantra = studyMantra.trim().ifBlank { "BS Civil Engineering · $cleanGoal" }.take(140)
 
         val updatedProfile = UserProfile(
@@ -277,7 +398,9 @@ class UserCloudRepository(
             studyMantra = cleanMantra,
             curriculumYear = clampedYear,
             primarySubjectKey = cleanSubject,
+            selectedSubjectKeys = cleanSubjects,
             studyGoal = cleanGoal,
+            selectedGoals = cleanGoals,
             onboardingCompleted = true
         )
         localProfileFlow.value = updatedProfile
@@ -365,7 +488,7 @@ class UserCloudRepository(
         if (firestore == null) {
             localPersonalBooksFlow.update { list ->
                 val filtered = list.filterNot { it.bookId == docId }
-                filtered + PersonalBook(
+                val updated = filtered + PersonalBook(
                     id = docId,
                     userId = userId,
                     bookId = docId,
@@ -381,6 +504,8 @@ class UserCloudRepository(
                     completed = existingRecord?.completed ?: false,
                     lastOpenedAt = book.lastOpenedAt
                 )
+                persistPersonalBooks(updated)
+                updated
             }
             return Result.success(nextBookmarked)
         }
@@ -426,7 +551,7 @@ class UserCloudRepository(
         if (firestore == null) {
             localPersonalBooksFlow.update { list ->
                 val filtered = list.filterNot { it.bookId == docId }
-                filtered + PersonalBook(
+                val updated = filtered + PersonalBook(
                     id = docId,
                     userId = userId,
                     bookId = docId,
@@ -442,6 +567,8 @@ class UserCloudRepository(
                     completed = nextCompleted,
                     lastOpenedAt = book.lastOpenedAt
                 )
+                persistPersonalBooks(updated)
+                updated
             }
             return Result.success(nextCompleted)
         }
@@ -490,7 +617,7 @@ class UserCloudRepository(
         if (firestore == null) {
             localPersonalBooksFlow.update { list ->
                 val filtered = list.filterNot { it.bookId == docId }
-                filtered + PersonalBook(
+                val updated = filtered + PersonalBook(
                     id = docId,
                     userId = userId,
                     bookId = docId,
@@ -506,6 +633,8 @@ class UserCloudRepository(
                     completed = existingRecord?.completed ?: false,
                     lastOpenedAt = nowMs
                 )
+                persistPersonalBooks(updated)
+                updated
             }
             return Result.success(Unit)
         }
@@ -558,7 +687,7 @@ class UserCloudRepository(
         if (firestore == null) {
             localStudyNotesFlow.update { list ->
                 val filtered = list.filterNot { it.id == docId }
-                filtered + CloudStudyNote(
+                val updated = filtered + CloudStudyNote(
                     id = docId,
                     userId = userId,
                     bookId = sanitizeFirestoreDocId(bookId),
@@ -567,6 +696,8 @@ class UserCloudRepository(
                     chapterTitle = cleanChapter,
                     noteText = cleanNote
                 )
+                persistStudyNotes(updated)
+                updated
             }
             return Result.success(Unit)
         }
@@ -612,7 +743,11 @@ class UserCloudRepository(
         val safeDocId = sanitizeFirestoreDocId(noteDocId)
         val firestore = db
         if (firestore == null) {
-            localStudyNotesFlow.update { list -> list.filterNot { it.id == safeDocId } }
+            localStudyNotesFlow.update { list ->
+                val updated = list.filterNot { it.id == safeDocId }
+                persistStudyNotes(updated)
+                updated
+            }
             return Result.success(Unit)
         }
         val docRef = firestore.collection("users").document(userId)

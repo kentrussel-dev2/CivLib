@@ -84,14 +84,17 @@ import com.example.ui.theme.SandCreamLight
 import com.example.ui.theme.SandCreamMuted
 import com.google.firebase.auth.FirebaseUser
 
+import androidx.compose.foundation.lazy.LazyRow
+import com.example.data.firebase.scoreBookForProfile
+
 /**
- * Instagram-Style Editorial Profile ("the IG system") connected to Google Account & Firestore:
- * - Espresso upper band ("Sync" · "Profile" · "Logout")
- * - Mathematically centered circular Google Avatar straddling the Espresso / Olive-Sage seam
- * - Playfair Display student name, editable Year 1–4 study mantra, Google account chip & Switch Account
+ * Instagram-Style Editorial Study Profile ("the IG system"):
+ * - Espresso upper band ("Sync" · "Profile" · "Survey") — always-on offline study session (no logout)
+ * - Mathematically centered circular Student Avatar straddling the Espresso / Olive-Sage seam
+ * - Playfair Display student name, editable Year 1–4 study mantra & multi-select survey button
  * - IG-style 3-column metrics strip (Saved | Completed | Notes)
  * - STICKY / FIXED 2-tab bar ("My Shelf" | "Recommend") pinned while scrolling
- * - Crisp edge-to-edge 3-column IG book cover mosaic grid
+ * - Chosen Subject Focus filter chips + Crisp edge-to-edge 3-column IG book cover mosaic grid
  */
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
@@ -108,8 +111,8 @@ fun ProfileVaultScreen(
     onSaveProfileSurvey: (ProfileSurveyResult) -> Unit = { res ->
         onUpdateProfilePreferences(res.studyMantra, res.curriculumYear)
     },
-    onSignOutClick: () -> Unit,
-    onSwitchGoogleAccount: () -> Unit = onSignOutClick,
+    onSignOutClick: () -> Unit = {},
+    onSwitchGoogleAccount: () -> Unit = {},
     onBookClick: (String) -> Unit,
     onOpenBookAtPage: (bookId: String, pageNumber: Int) -> Unit,
     onDeleteCloudNote: (String) -> Unit,
@@ -119,58 +122,75 @@ fun ProfileVaultScreen(
     var selectedTab by rememberSaveable { mutableIntStateOf(1) }
     var showEditProfileDialog by remember { mutableStateOf(false) }
     var showFullSurveyModal by rememberSaveable { mutableStateOf(false) }
+    var activeRecommendSubjectFilter by rememberSaveable { mutableStateOf<String?>(null) }
 
     val displayName = userProfile?.displayName?.takeIf { it.isNotBlank() }
         ?: currentUser?.displayName?.takeIf { it.isNotBlank() }
-        ?: currentUser?.email?.substringBefore("@")
         ?: "Civil Engineer"
-    val userEmail = userProfile?.email?.takeIf { it.isNotBlank() }
-        ?: currentUser?.email.orEmpty()
     val photoUrl = userProfile?.photoUrl?.takeIf { it.isNotBlank() }
         ?: currentUser?.photoUrl?.toString()
     val curriculumYear = (userProfile?.curriculumYear ?: 1L).toInt().coerceIn(1, 4)
-    val primarySubjectKey = userProfile?.primarySubjectKey?.takeIf { it.isNotBlank() }
-        ?: CivilSubject.entries.firstOrNull { it.curriculumYear == curriculumYear }?.name
-        ?: CivilSubject.MECHANICS.name
-    val primarySubject = remember(primarySubjectKey) { CivilSubject.fromKey(primarySubjectKey) }
-    val studyGoal = userProfile?.studyGoal?.takeIf { it.isNotBlank() }
-        ?: "Current Semester Courses"
+
+    val chosenSubjectKeys = remember(userProfile, curriculumYear) {
+        userProfile?.effectiveSubjectKeys?.takeIf { it.isNotEmpty() }
+            ?: CivilSubject.entries.filter { it.curriculumYear == curriculumYear }.map { it.name }
+                .ifEmpty { listOf(CivilSubject.MECHANICS.name) }
+    }
+    val chosenSubjects = remember(chosenSubjectKeys) {
+        chosenSubjectKeys.map { CivilSubject.fromKey(it) }.distinct()
+    }
+    val primarySubject = chosenSubjects.firstOrNull() ?: CivilSubject.MECHANICS
+
+    val chosenGoals = remember(userProfile) {
+        userProfile?.effectiveStudyGoals?.takeIf { it.isNotEmpty() }
+            ?: listOf("Current Semester Courses")
+    }
+    val studyGoal = chosenGoals.first()
     val studyMantra = userProfile?.studyMantra?.takeIf { it.isNotBlank() }
-        ?: "${primarySubject.shortName} (${primarySubject.courseCode}) · $studyGoal"
+        ?: "${chosenSubjects.take(2).joinToString(", ") { it.shortName }} · $studyGoal"
 
     if (showFullSurveyModal) {
         AuthScreen(
             onAuthSuccess = { showFullSurveyModal = false },
             onSurveyCompleted = { result ->
                 onSaveProfileSurvey(result)
+                activeRecommendSubjectFilter = null
                 showFullSurveyModal = false
                 selectedTab = 1
             },
             initialShowSurvey = true,
             initialName = displayName,
-            initialEmail = userEmail,
             initialYear = curriculumYear,
-            initialSubjectKey = primarySubjectKey,
+            initialSubjectKey = primarySubject.name,
+            initialSubjectKeys = chosenSubjectKeys,
             initialGoal = studyGoal,
+            initialGoals = chosenGoals,
+            onDismissSurvey = { showFullSurveyModal = false },
             modifier = modifier
         )
         return
     }
 
-    // Prioritize recommended books matching her chosen survey subject first, then her college year, then chronological order
-    val recommendedBooks = remember(allBooks, curriculumYear, primarySubjectKey) {
-        allBooks.sortedWith(
-            compareBy<BookEntity>(
-                { if (it.subjectKey.equals(primarySubjectKey, ignoreCase = true)) 0 else 1 },
-                {
-                    val subjYear = CivilSubject.fromKey(it.subjectKey).curriculumYear
-                    if (subjYear == curriculumYear) 0 else 1
-                },
-                { CivilSubject.fromKey(it.subjectKey).curriculumYear },
-                { CivilSubject.fromKey(it.subjectKey).sequenceOrder },
-                { it.courseCode }
-            )
+    // Rank recommended books based on ALL of the student's chosen subjects, study goals, and curriculum year
+    val recommendedBooks = remember(allBooks, userProfile, curriculumYear, chosenSubjectKeys, chosenGoals, activeRecommendSubjectFilter) {
+        val baseSorted = allBooks.sortedWith(
+            compareByDescending<BookEntity> { book ->
+                scoreBookForProfile(book, userProfile)
+            }.thenBy { book ->
+                val idx = chosenSubjectKeys.indexOfFirst { it.equals(book.subjectKey, ignoreCase = true) }
+                if (idx >= 0) idx else 99
+            }.thenBy { book ->
+                val subjYear = CivilSubject.fromKey(book.subjectKey).curriculumYear
+                if (subjYear == curriculumYear) 0 else 1
+            }.thenBy { book ->
+                CivilSubject.fromKey(book.subjectKey).sequenceOrder
+            }.thenBy { it.courseCode }
         )
+        if (activeRecommendSubjectFilter.isNullOrBlank()) {
+            baseSorted
+        } else {
+            baseSorted.filter { it.subjectKey.equals(activeRecommendSubjectFilter, ignoreCase = true) }
+        }
     }
 
     val mosaicRows = remember(recommendedBooks) { recommendedBooks.chunked(3) }
@@ -182,7 +202,7 @@ fun ProfileVaultScreen(
             .background(EspressoBg),
         contentPadding = PaddingValues(bottom = 114.dp)
     ) {
-        // 1. Split Espresso + Olive-Sage Header with Mathematically Centered Circular Google Avatar
+        // 1. Split Espresso + Olive-Sage Header with Mathematically Centered Circular Student Avatar
         item(key = "profile_split_header") {
             val upperBandHeight = 116.dp
             val avatarSize = 112.dp
@@ -224,15 +244,15 @@ fun ProfileVaultScreen(
                                 color = SandCreamLight
                             )
                             Text(
-                                text = "Logout",
+                                text = "Survey",
                                 fontFamily = DmSansFontFamily,
-                                fontWeight = FontWeight.Medium,
+                                fontWeight = FontWeight.SemiBold,
                                 fontSize = 14.sp,
-                                color = SandCreamLight.copy(alpha = 0.88f),
+                                color = SandCream,
                                 modifier = Modifier
-                                    .clickable(onClick = onSignOutClick)
+                                    .clickable { showFullSurveyModal = true }
                                     .padding(vertical = 6.dp, horizontal = 4.dp)
-                                    .testTag("profile_logout_action")
+                                    .testTag("profile_survey_top_action")
                             )
                         }
                     }
@@ -282,7 +302,7 @@ fun ProfileVaultScreen(
                             Spacer(modifier = Modifier.width(6.dp))
                             Icon(
                                 imageVector = Icons.Outlined.Edit,
-                                contentDescription = "Edit study track",
+                                contentDescription = "Edit study survey",
                                 tint = EspressoInkMuted,
                                 modifier = Modifier.size(13.dp)
                             )
@@ -290,7 +310,7 @@ fun ProfileVaultScreen(
 
                         Spacer(modifier = Modifier.height(8.dp))
 
-                        // Google Account Pill + Customize Study Survey Button Row
+                        // Study Survey Customization Pill + Chosen Goals Summary Pill
                         Row(
                             horizontalArrangement = Arrangement.spacedBy(8.dp),
                             verticalAlignment = Alignment.CenterVertically
@@ -302,18 +322,23 @@ fun ProfileVaultScreen(
                                 modifier = Modifier.testTag("profile_open_survey_button")
                             ) {
                                 Row(
-                                    modifier = Modifier.padding(horizontal = 12.dp, vertical = 5.dp),
+                                    modifier = Modifier.padding(horizontal = 13.dp, vertical = 6.dp),
                                     verticalAlignment = Alignment.CenterVertically
                                 ) {
                                     Icon(
                                         imageVector = Icons.Outlined.Edit,
-                                        contentDescription = "Study Survey",
+                                        contentDescription = "Edit Study Survey",
                                         tint = EspressoInk,
                                         modifier = Modifier.size(13.dp)
                                     )
                                     Spacer(modifier = Modifier.width(5.dp))
+                                    val focusLabel = if (chosenSubjects.size == 1) {
+                                        chosenSubjects.first().shortName
+                                    } else {
+                                        "${chosenSubjects.size} Focus Subjects"
+                                    }
                                     Text(
-                                        text = "Study Survey · ${primarySubject.shortName}",
+                                        text = "Edit Survey · $focusLabel",
                                         fontFamily = DmSansFontFamily,
                                         fontWeight = FontWeight.Bold,
                                         fontSize = 11.5.sp,
@@ -323,39 +348,18 @@ fun ProfileVaultScreen(
                             }
 
                             Surface(
-                                onClick = onSwitchGoogleAccount,
+                                onClick = { showFullSurveyModal = true },
                                 shape = RoundedCornerShape(999.dp),
-                                color = EspressoInk.copy(alpha = 0.11f),
-                                modifier = Modifier.testTag("profile_switch_google_account")
+                                color = EspressoInk.copy(alpha = 0.12f)
                             ) {
-                                Row(
-                                    modifier = Modifier.padding(horizontal = 11.dp, vertical = 5.dp),
-                                    verticalAlignment = Alignment.CenterVertically
-                                ) {
-                                    Text(
-                                        text = "G",
-                                        fontFamily = DmSansFontFamily,
-                                        fontWeight = FontWeight.ExtraBold,
-                                        fontSize = 11.sp,
-                                        color = EspressoInk
-                                    )
-                                    Spacer(modifier = Modifier.width(5.dp))
-                                    Text(
-                                        text = userEmail.ifBlank { "Google Account" },
-                                        fontFamily = DmSansFontFamily,
-                                        fontSize = 11.5.sp,
-                                        color = EspressoInk,
-                                        maxLines = 1,
-                                        overflow = TextOverflow.Ellipsis
-                                    )
-                                    Spacer(modifier = Modifier.width(5.dp))
-                                    Icon(
-                                        imageVector = Icons.Outlined.SwitchAccount,
-                                        contentDescription = "Switch Google account",
-                                        tint = EspressoInkMuted,
-                                        modifier = Modifier.size(13.dp)
-                                    )
-                                }
+                                Text(
+                                    text = "${chosenGoals.size} Study ${if (chosenGoals.size == 1) "Goal" else "Goals"}",
+                                    fontFamily = DmSansFontFamily,
+                                    fontWeight = FontWeight.SemiBold,
+                                    fontSize = 11.5.sp,
+                                    color = EspressoInk,
+                                    modifier = Modifier.padding(horizontal = 11.dp, vertical = 6.dp)
+                                )
                             }
                         }
 
@@ -402,7 +406,7 @@ fun ProfileVaultScreen(
                     }
                 }
 
-                // Overlapping Circular Google Profile Portrait mathematically centered on the Espresso / Sage seam
+                // Overlapping Circular Student Profile Portrait mathematically centered on the Espresso / Sage seam
                 Box(
                     modifier = Modifier
                         .align(Alignment.TopCenter)
@@ -417,7 +421,7 @@ fun ProfileVaultScreen(
                     if (!photoUrl.isNullOrBlank()) {
                         AsyncImage(
                             model = photoUrl,
-                            contentDescription = "Google account profile picture",
+                            contentDescription = "Student profile picture",
                             contentScale = ContentScale.Crop,
                             placeholder = painterResource(id = R.drawable.img_library_hero_1795058942930),
                             error = painterResource(id = R.drawable.img_library_hero_1795058942930),
@@ -457,7 +461,7 @@ fun ProfileVaultScreen(
                             .testTag("profile_tab_shelf")
                     )
                     ProfileStickyIgTab(
-                        label = "For You · Y$curriculumYear ${primarySubject.shortName}",
+                        label = "Recommend",
                         icon = if (selectedTab == 1) Icons.Filled.GridOn else Icons.Outlined.GridOn,
                         selected = selectedTab == 1,
                         onClick = { selectedTab = 1 },
@@ -471,6 +475,57 @@ fun ProfileVaultScreen(
 
         // 3. Edge-to-Edge Tight 3-Column Instagram Book Grid
         if (selectedTab == 1) {
+            item(key = "recommend_chosen_filters") {
+                Column(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .background(EspressoBg)
+                        .padding(vertical = 10.dp)
+                ) {
+                    LazyRow(
+                        contentPadding = PaddingValues(horizontal = 14.dp),
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        item(key = "filter_all_chosen") {
+                            val isAll = activeRecommendSubjectFilter == null
+                            Surface(
+                                onClick = { activeRecommendSubjectFilter = null },
+                                shape = RoundedCornerShape(999.dp),
+                                color = if (isAll) SandCream else EspressoCard
+                            ) {
+                                Text(
+                                    text = "Recommended For You · Y$curriculumYear",
+                                    fontFamily = DmSansFontFamily,
+                                    fontWeight = FontWeight.Bold,
+                                    fontSize = 11.5.sp,
+                                    color = if (isAll) EspressoInk else SandCreamLight,
+                                    modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp)
+                                )
+                            }
+                        }
+                        items(chosenSubjects, key = { "rec_chip_${it.name}" }) { subj ->
+                            val isSelected = activeRecommendSubjectFilter.equals(subj.name, ignoreCase = true)
+                            Surface(
+                                onClick = {
+                                    activeRecommendSubjectFilter = if (isSelected) null else subj.name
+                                },
+                                shape = RoundedCornerShape(999.dp),
+                                color = if (isSelected) SandCream else SageOlive.copy(alpha = 0.28f)
+                            ) {
+                                Text(
+                                    text = "${subj.shortName} (${subj.courseCode})",
+                                    fontFamily = DmSansFontFamily,
+                                    fontWeight = FontWeight.SemiBold,
+                                    fontSize = 11.5.sp,
+                                    color = if (isSelected) EspressoInk else SandCreamLight,
+                                    modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp)
+                                )
+                            }
+                        }
+                    }
+                }
+            }
+
             items(mosaicRows, key = { row -> "wall_${row.joinToString("_") { it.id }}" }) { rowBooks ->
                 TightBookMosaicRow(
                     rowBooks = rowBooks,

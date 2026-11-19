@@ -4,7 +4,6 @@ import androidx.compose.animation.AnimatedContent
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -27,14 +26,10 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.automirrored.filled.ArrowForward
-import androidx.compose.material.icons.automirrored.filled.MenuBook
-import androidx.compose.material.icons.filled.Bookmark
 import androidx.compose.material.icons.filled.CheckCircle
-import androidx.compose.material.icons.filled.CloudDone
 import androidx.compose.material.icons.filled.School
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
-import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.OutlinedTextFieldDefaults
@@ -42,12 +37,10 @@ import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
@@ -55,24 +48,17 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.layout.ContentScale
-import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardCapitalization
-import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import androidx.credentials.CredentialManager
 import com.example.R
-import com.example.data.firebase.attemptAutoSignIn
-import com.example.data.firebase.onGoogleSignInClicked
-import com.example.data.firebase.safeFirebaseAuthOrNull
 import com.example.data.model.CivilSubject
 import com.example.ui.theme.DmSansFontFamily
 import com.example.ui.theme.EspressoBg
@@ -88,10 +74,12 @@ import com.example.ui.theme.SandCreamMuted
 
 data class ProfileSurveyResult(
     val displayName: String,
-    val email: String?,
+    val email: String? = null,
     val curriculumYear: Int,
     val primarySubjectKey: String,
+    val selectedSubjectKeys: List<String>,
     val studyGoal: String,
+    val selectedGoals: List<String>,
     val studyMantra: String
 )
 
@@ -100,7 +88,7 @@ private data class YearSurveyOption(
     val badge: String,
     val title: String,
     val subtitle: String,
-    val defaultSubject: CivilSubject
+    val defaultSubjects: List<CivilSubject>
 )
 
 private val YearSurveyOptions = listOf(
@@ -109,57 +97,62 @@ private val YearSurveyOptions = listOf(
         badge = "YEAR 1",
         title = "1st Year · Engineering Foundations",
         subtitle = "Statics, Dynamics, Engineering Calculus & Physics (CE 101–104)",
-        defaultSubject = CivilSubject.MECHANICS
+        defaultSubjects = listOf(CivilSubject.MECHANICS)
     ),
     YearSurveyOption(
         year = 2,
         badge = "YEAR 2",
         title = "2nd Year · Surveying & Materials",
         subtitle = "Geomatics, Strength of Materials & Concrete Tech (CE 201–208)",
-        defaultSubject = CivilSubject.SURVEYING
+        defaultSubjects = listOf(CivilSubject.SURVEYING, CivilSubject.MATERIALS)
     ),
     YearSurveyOption(
         year = 3,
         badge = "YEAR 3",
         title = "3rd Year · Core Civil Disciplines",
         subtitle = "Structural Analysis, Hydraulics, Soil Mechanics & Highway (CE 301–308)",
-        defaultSubject = CivilSubject.STRUCTURAL
+        defaultSubjects = listOf(
+            CivilSubject.STRUCTURAL,
+            CivilSubject.HYDRAULICS,
+            CivilSubject.GEOTECHNICAL,
+            CivilSubject.TRANSPORTATION
+        )
     ),
     YearSurveyOption(
         year = 4,
         badge = "YEAR 4",
         title = "4th Year · Design, Capstone & Board Exam",
         subtitle = "Reinforced Concrete/Steel Design, Environmental & Construction Mgmt (CE 401–408)",
-        defaultSubject = CivilSubject.CONSTRUCTION
+        defaultSubjects = listOf(CivilSubject.ENVIRONMENTAL, CivilSubject.CONSTRUCTION, CivilSubject.STRUCTURAL)
     )
 )
 
 private data class StudyGoalOption(
     val title: String,
     val subtitle: String,
-    val mantraPrefix: String
+    val shortBadge: String
 )
 
 private val StudyGoalOptions = listOf(
     StudyGoalOption(
         title = "Current Semester Courses",
         subtitle = "Follow my year's chronological textbooks & problem sets",
-        mantraPrefix = "BS Civil Engineering · Chronological Track"
+        shortBadge = "Semester Track"
     ),
     StudyGoalOption(
         title = "CE Licensure & Board Exam Review",
         subtitle = "Focus on high-yield board exam formulas, MSTE, HGE & PSAD",
-        mantraPrefix = "Future Registered Civil Engineer · Board Review"
+        shortBadge = "Board Review"
     ),
     StudyGoalOption(
         title = "Structural & Foundation Design",
         subtitle = "Deep-dive into RC, Steel, Bridge & Geotechnical references",
-        mantraPrefix = "BSCE · Structural & Geotechnical Track"
+        shortBadge = "Design Track"
     ),
     StudyGoalOption(
         title = "Capstone Project & Field Reference",
         subtitle = "Codes, estimating, hydraulics & construction management",
-        mantraPrefix = "BSCE · Capstone & Field Engineering"
+        shortBadge = "Capstone & Field"
     )
 )
 
@@ -167,49 +160,41 @@ private val StudyGoalOptions = listOf(
 fun AuthScreen(
     onAuthSuccess: () -> Unit,
     onSurveyCompleted: (ProfileSurveyResult) -> Unit = { onAuthSuccess() },
-    initialShowSurvey: Boolean = false,
+    initialShowSurvey: Boolean = true,
     initialName: String = "",
     initialEmail: String = "",
     initialYear: Int = 1,
     initialSubjectKey: String = CivilSubject.MECHANICS.name,
+    initialSubjectKeys: List<String> = emptyList(),
     initialGoal: String = StudyGoalOptions.first().title,
+    initialGoals: List<String> = emptyList(),
+    onDismissSurvey: (() -> Unit)? = null,
     modifier: Modifier = Modifier
 ) {
-    val context = LocalContext.current
-    val scope = rememberCoroutineScope()
-    val credentialManager = remember(context) { CredentialManager.create(context) }
-
-    var isAutoChecking by remember { mutableStateOf(!initialShowSurvey) }
-    var isSigningIn by remember { mutableStateOf(false) }
-    var showSurveyWizard by rememberSaveable { mutableStateOf(initialShowSurvey) }
     var surveyStep by rememberSaveable { mutableIntStateOf(0) } // 0..3 (4 questions)
-
     var studentName by rememberSaveable { mutableStateOf(initialName) }
-    var studentEmail by rememberSaveable { mutableStateOf(initialEmail) }
     var selectedYear by rememberSaveable { mutableIntStateOf(initialYear.coerceIn(1, 4)) }
-    var selectedSubjectKey by rememberSaveable { mutableStateOf(initialSubjectKey) }
-    var selectedGoal by rememberSaveable { mutableStateOf(initialGoal) }
 
-    LaunchedEffect(Unit) {
-        if (!initialShowSurvey) {
-            attemptAutoSignIn(
-                context = context,
-                credentialManager = credentialManager,
-                onAuthSuccess = {
-                    isAutoChecking = false
-                    val fbUser = safeFirebaseAuthOrNull()?.currentUser
-                    if (fbUser != null) {
-                        studentName = fbUser.displayName.orEmpty()
-                        studentEmail = fbUser.email.orEmpty()
-                    }
-                    showSurveyWizard = true
-                },
-                onUnauthenticated = {
-                    isAutoChecking = false
-                },
-                scope = scope
-            )
-        }
+    val seedSubjects = remember(initialSubjectKeys, initialSubjectKey) {
+        val list = initialSubjectKeys.filter { it.isNotBlank() }
+        if (list.isNotEmpty()) list.joinToString("|")
+        else initialSubjectKey.ifBlank { CivilSubject.MECHANICS.name }
+    }
+    var selectedSubjectsRaw by rememberSaveable { mutableStateOf(seedSubjects) }
+    val selectedSubjectKeys = remember(selectedSubjectsRaw) {
+        selectedSubjectsRaw.split("|").map { it.trim() }.filter { it.isNotBlank() }
+            .ifEmpty { listOf(CivilSubject.MECHANICS.name) }
+    }
+
+    val seedGoals = remember(initialGoals, initialGoal) {
+        val list = initialGoals.filter { it.isNotBlank() }
+        if (list.isNotEmpty()) list.joinToString("|")
+        else initialGoal.ifBlank { StudyGoalOptions.first().title }
+    }
+    var selectedGoalsRaw by rememberSaveable { mutableStateOf(seedGoals) }
+    val selectedGoals = remember(selectedGoalsRaw) {
+        selectedGoalsRaw.split("|").map { it.trim() }.filter { it.isNotBlank() }
+            .ifEmpty { listOf(StudyGoalOptions.first().title) }
     }
 
     Surface(
@@ -223,26 +208,28 @@ fun AuthScreen(
                 .statusBarsPadding()
                 .navigationBarsPadding()
                 .verticalScroll(rememberScrollState())
-                .padding(horizontal = 22.dp, vertical = 18.dp),
+                .padding(horizontal = 20.dp, vertical = 16.dp),
             horizontalAlignment = Alignment.CenterHorizontally,
             verticalArrangement = Arrangement.Center
         ) {
             Column(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .widthIn(max = 440.dp),
+                    .widthIn(max = 450.dp),
                 horizontalAlignment = Alignment.CenterHorizontally
             ) {
-                if (!showSurveyWizard) {
-                    Spacer(modifier = Modifier.height(8.dp))
-
-                    // Circular library emblem matching Profile portrait framing
+                // Compact CivLib Header Emblem
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.Center,
+                    modifier = Modifier.padding(bottom = 12.dp)
+                ) {
                     Box(
                         modifier = Modifier
-                            .size(96.dp)
-                            .shadow(10.dp, CircleShape)
+                            .size(46.dp)
+                            .shadow(6.dp, CircleShape)
                             .clip(CircleShape)
-                            .border(3.dp, SageOlive, CircleShape)
+                            .border(2.dp, SageOlive, CircleShape)
                             .background(EspressoCard)
                     ) {
                         Image(
@@ -252,218 +239,105 @@ fun AuthScreen(
                             modifier = Modifier.fillMaxSize()
                         )
                     }
-
-                    Spacer(modifier = Modifier.height(16.dp))
-
-                    Text(
-                        text = "CivLib",
-                        fontFamily = PlayfairDisplayFontFamily,
-                        fontWeight = FontWeight.Bold,
-                        fontSize = 36.sp,
-                        letterSpacing = (-0.5).sp,
-                        color = SandCreamLight
-                    )
-                    Spacer(modifier = Modifier.height(6.dp))
-                    Text(
-                        text = "Your personal Civil Engineering library,\nYear 1–4 roadmap & 2-page PDF book reader.",
-                        fontFamily = LoraFontFamily,
-                        fontSize = 14.sp,
-                        lineHeight = 20.sp,
-                        color = SandCreamMuted,
-                        textAlign = TextAlign.Center
-                    )
-
-                    Spacer(modifier = Modifier.height(22.dp))
-
-                    Button(
-                        onClick = {
-                            isSigningIn = true
-                            val auth = safeFirebaseAuthOrNull()
-                            val resId = context.resources.getIdentifier(
-                                "default_web_client_id",
-                                "string",
-                                context.packageName
-                            )
-                            if (auth == null || resId == 0) {
-                                isSigningIn = false
-                                surveyStep = 0
-                                showSurveyWizard = true
-                            } else {
-                                onGoogleSignInClicked(
-                                    context = context,
-                                    credentialManager = credentialManager,
-                                    onAuthSuccess = {
-                                        isSigningIn = false
-                                        val fbUser = auth.currentUser
-                                        if (fbUser != null) {
-                                            if (studentName.isBlank()) studentName = fbUser.displayName.orEmpty()
-                                            if (studentEmail.isBlank()) studentEmail = fbUser.email.orEmpty()
-                                        }
-                                        surveyStep = 0
-                                        showSurveyWizard = true
-                                    },
-                                    onAuthError = {
-                                        isSigningIn = false
-                                        surveyStep = 0
-                                        showSurveyWizard = true
-                                    },
-                                    scope = scope,
-                                    onAuthCancelled = {
-                                        isSigningIn = false
-                                        surveyStep = 0
-                                        showSurveyWizard = true
-                                    }
-                                )
-                            }
-                        },
-                        enabled = !isSigningIn,
-                        shape = RoundedCornerShape(28.dp),
-                        colors = ButtonDefaults.buttonColors(
-                            containerColor = SandCream,
-                            contentColor = EspressoInk,
-                            disabledContainerColor = SageOlive,
-                            disabledContentColor = EspressoInk
-                        ),
-                        elevation = ButtonDefaults.buttonElevation(defaultElevation = 4.dp),
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .height(54.dp)
-                            .testTag("google_sign_in_button")
-                    ) {
-                        if (isSigningIn) {
-                            CircularProgressIndicator(
-                                modifier = Modifier.size(20.dp),
-                                color = EspressoInk,
-                                strokeWidth = 2.dp
-                            )
-                            Spacer(modifier = Modifier.width(12.dp))
-                            Text(
-                                text = "Connecting Google Profile…",
-                                fontFamily = DmSansFontFamily,
-                                fontWeight = FontWeight.SemiBold,
-                                fontSize = 15.sp,
-                                color = EspressoInk
-                            )
-                        } else {
-                            Box(
-                                contentAlignment = Alignment.Center,
-                                modifier = Modifier
-                                    .size(26.dp)
-                                    .clip(CircleShape)
-                                    .background(Color.White)
-                            ) {
-                                Text(
-                                    text = "G",
-                                    fontFamily = DmSansFontFamily,
-                                    fontWeight = FontWeight.ExtraBold,
-                                    fontSize = 15.sp,
-                                    color = EspressoInk
-                                )
-                            }
-                            Spacer(modifier = Modifier.width(12.dp))
-                            Text(
-                                text = "Sign in with Google & Personalize",
-                                fontFamily = DmSansFontFamily,
-                                fontWeight = FontWeight.SemiBold,
-                                fontSize = 15.5.sp,
-                                color = EspressoInk
-                            )
-                        }
+                    Spacer(modifier = Modifier.width(12.dp))
+                    Column {
+                        Text(
+                            text = "CivLib Study Profile",
+                            fontFamily = PlayfairDisplayFontFamily,
+                            fontWeight = FontWeight.Bold,
+                            fontSize = 22.sp,
+                            color = SandCreamLight
+                        )
+                        Text(
+                            text = "Always-on offline study session · Saved in device cache",
+                            fontFamily = DmSansFontFamily,
+                            fontSize = 11.5.sp,
+                            color = SandCreamMuted
+                        )
                     }
-
-                    Spacer(modifier = Modifier.height(22.dp))
-
-                    // Warm Sand-Cream editorial feature card
-                    Surface(
-                        color = SandCream,
-                        contentColor = EspressoInk,
-                        shape = RoundedCornerShape(20.dp),
-                        modifier = Modifier.fillMaxWidth()
-                    ) {
-                        Column(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .padding(horizontal = 18.dp, vertical = 18.dp),
-                            verticalArrangement = Arrangement.spacedBy(12.dp)
-                        ) {
-                            AuthBenefitRow(
-                                icon = Icons.AutoMirrored.Filled.MenuBook,
-                                title = "Personalized Year 1–4 Recommendations",
-                                subtitle = "Answer 4 quick questions to tailor your textbook shelf to your year & course"
-                            )
-                            AuthBenefitRow(
-                                icon = Icons.Filled.Bookmark,
-                                title = "Personal Bookmarks & Study Notes",
-                                subtitle = "Save your shelf, current pages, and exam notes to your profile"
-                            )
-                            AuthBenefitRow(
-                                icon = Icons.Filled.CloudDone,
-                                title = "2-Page Landscape Book Reader",
-                                subtitle = "Read downloaded or imported PDFs as an open two-page textbook"
-                            )
-                        }
-                    }
-
-                    Spacer(modifier = Modifier.height(14.dp))
-                    Text(
-                        text = "Takes 15 seconds · Customize your year, course focus, and recommendations.",
-                        fontFamily = DmSansFontFamily,
-                        fontSize = 12.sp,
-                        color = SandCreamMuted,
-                        textAlign = TextAlign.Center
-                    )
-                } else {
-                    // 4-Step Interactive Button Survey Wizard
-                    StudentProfileSurveyCard(
-                        step = surveyStep,
-                        studentName = studentName,
-                        onNameChange = { studentName = it },
-                        studentEmail = studentEmail,
-                        onEmailChange = { studentEmail = it },
-                        selectedYear = selectedYear,
-                        onSelectYear = { yr ->
-                            selectedYear = yr
-                            // Auto-pick a matching subject for that year if current doesn't match
-                            val defaultSubj = YearSurveyOptions.firstOrNull { it.year == yr }?.defaultSubject
-                                ?: CivilSubject.STRUCTURAL
-                            selectedSubjectKey = defaultSubj.name
-                        },
-                        selectedSubjectKey = selectedSubjectKey,
-                        onSelectSubjectKey = { selectedSubjectKey = it },
-                        selectedGoal = selectedGoal,
-                        onSelectGoal = { selectedGoal = it },
-                        onBack = {
-                            if (surveyStep > 0) surveyStep -= 1
-                            else if (!initialShowSurvey) showSurveyWizard = false
-                        },
-                        onNext = {
-                            if (surveyStep < 3) {
-                                surveyStep += 1
-                            } else {
-                                val chosenSubject = CivilSubject.fromKey(selectedSubjectKey)
-                                val goalSpec = StudyGoalOptions.firstOrNull { it.title == selectedGoal }
-                                    ?: StudyGoalOptions.first()
-                                val finalName = studentName.trim().ifBlank {
-                                    studentEmail.substringBefore("@").ifBlank { "Civil Engineer" }
-                                }
-                                val finalEmail = studentEmail.trim().ifBlank {
-                                    "${finalName.lowercase().replace(Regex("[^a-z0-9]"), "")}@gmail.com"
-                                }
-                                val generatedMantra = "${chosenSubject.shortName} (${chosenSubject.courseCode}) · ${goalSpec.title}"
-                                onSurveyCompleted(
-                                    ProfileSurveyResult(
-                                        displayName = finalName,
-                                        email = finalEmail,
-                                        curriculumYear = selectedYear,
-                                        primarySubjectKey = chosenSubject.name,
-                                        studyGoal = selectedGoal,
-                                        studyMantra = generatedMantra
-                                    )
-                                )
-                            }
-                        }
-                    )
                 }
+
+                // 4-Step Interactive Multi-Select Button Survey Wizard
+                StudentProfileSurveyCard(
+                    step = surveyStep,
+                    studentName = studentName,
+                    onNameChange = { studentName = it },
+                    selectedYear = selectedYear,
+                    onSelectYear = { yr ->
+                        selectedYear = yr
+                        // Pre-select the subjects belonging to that year if user hasn't picked multiple yet
+                        val yearSubjects = CivilSubject.entries
+                            .filter { it.curriculumYear == yr }
+                            .map { it.name }
+                        if (yearSubjects.isNotEmpty()) {
+                            selectedSubjectsRaw = yearSubjects.joinToString("|")
+                        }
+                    },
+                    selectedSubjectKeys = selectedSubjectKeys,
+                    onToggleSubjectKey = { key ->
+                        val current = selectedSubjectKeys.toMutableList()
+                        if (key in current) {
+                            if (current.size > 1) current.remove(key)
+                        } else {
+                            current.add(key)
+                        }
+                        selectedSubjectsRaw = current.joinToString("|")
+                    },
+                    onSelectMultipleSubjects = { keys ->
+                        if (keys.isNotEmpty()) {
+                            selectedSubjectsRaw = keys.distinct().joinToString("|")
+                        }
+                    },
+                    selectedGoals = selectedGoals,
+                    onToggleGoal = { goalTitle ->
+                        val current = selectedGoals.toMutableList()
+                        if (goalTitle in current) {
+                            if (current.size > 1) current.remove(goalTitle)
+                        } else {
+                            current.add(goalTitle)
+                        }
+                        selectedGoalsRaw = current.joinToString("|")
+                    },
+                    canDismissOnFirstStep = onDismissSurvey != null,
+                    onBack = {
+                        if (surveyStep > 0) {
+                            surveyStep -= 1
+                        } else {
+                            onDismissSurvey?.invoke()
+                        }
+                    },
+                    onNext = {
+                        if (surveyStep < 3) {
+                            surveyStep += 1
+                        } else {
+                            val chosenSubjects = selectedSubjectKeys.map { CivilSubject.fromKey(it) }.distinct()
+                            val primarySubj = chosenSubjects.firstOrNull() ?: CivilSubject.MECHANICS
+                            val finalName = studentName.trim().ifBlank { "Civil Engineer" }
+                            val subjectSummary = if (chosenSubjects.size <= 2) {
+                                chosenSubjects.joinToString(", ") { it.shortName }
+                            } else {
+                                "${chosenSubjects.take(2).joinToString(", ") { it.shortName }} +${chosenSubjects.size - 2}"
+                            }
+                            val goalSummary = selectedGoals.mapNotNull { gTitle ->
+                                StudyGoalOptions.firstOrNull { it.title == gTitle }?.shortBadge
+                            }.ifEmpty { listOf("Semester Track") }.joinToString(" + ")
+
+                            val generatedMantra = "$subjectSummary · $goalSummary"
+                            onSurveyCompleted(
+                                ProfileSurveyResult(
+                                    displayName = finalName,
+                                    email = initialEmail.takeIf { it.isNotBlank() },
+                                    curriculumYear = selectedYear,
+                                    primarySubjectKey = primarySubj.name,
+                                    selectedSubjectKeys = chosenSubjects.map { it.name },
+                                    studyGoal = selectedGoals.first(),
+                                    selectedGoals = selectedGoals,
+                                    studyMantra = generatedMantra
+                                )
+                            )
+                        }
+                    }
+                )
             }
         }
     }
@@ -474,14 +348,14 @@ fun StudentProfileSurveyCard(
     step: Int,
     studentName: String,
     onNameChange: (String) -> Unit,
-    studentEmail: String,
-    onEmailChange: (String) -> Unit,
     selectedYear: Int,
     onSelectYear: (Int) -> Unit,
-    selectedSubjectKey: String,
-    onSelectSubjectKey: (String) -> Unit,
-    selectedGoal: String,
-    onSelectGoal: (String) -> Unit,
+    selectedSubjectKeys: List<String>,
+    onToggleSubjectKey: (String) -> Unit,
+    onSelectMultipleSubjects: (List<String>) -> Unit,
+    selectedGoals: List<String>,
+    onToggleGoal: (String) -> Unit,
+    canDismissOnFirstStep: Boolean = false,
     onBack: () -> Unit,
     onNext: () -> Unit
 ) {
@@ -511,7 +385,7 @@ fun StudentProfileSurveyCard(
                     )
                     Spacer(modifier = Modifier.width(6.dp))
                     Text(
-                        text = "Google Profile Setup · Question ${step + 1} of 4",
+                        text = "Study Survey · Question ${step + 1} of 4",
                         fontFamily = DmSansFontFamily,
                         fontWeight = FontWeight.SemiBold,
                         fontSize = 12.sp,
@@ -519,9 +393,27 @@ fun StudentProfileSurveyCard(
                     )
                 }
             }
+
+            if (step == 2) {
+                Text(
+                    text = "${selectedSubjectKeys.size} subjects chosen",
+                    fontFamily = DmSansFontFamily,
+                    fontWeight = FontWeight.Bold,
+                    fontSize = 12.sp,
+                    color = SandCream
+                )
+            } else if (step == 3) {
+                Text(
+                    text = "${selectedGoals.size} goals chosen",
+                    fontFamily = DmSansFontFamily,
+                    fontWeight = FontWeight.Bold,
+                    fontSize = 12.sp,
+                    color = SandCream
+                )
+            }
         }
 
-        Spacer(modifier = Modifier.height(12.dp))
+        Spacer(modifier = Modifier.height(10.dp))
 
         // 4-Segment Progress Bar
         Row(
@@ -541,7 +433,7 @@ fun StudentProfileSurveyCard(
             }
         }
 
-        Spacer(modifier = Modifier.height(18.dp))
+        Spacer(modifier = Modifier.height(16.dp))
 
         // Main Survey Card
         Surface(
@@ -563,7 +455,7 @@ fun StudentProfileSurveyCard(
                     when (currentStep) {
                         0 -> {
                             Text(
-                                text = "1. Connect Your Google Profile",
+                                text = "1. What Is Your Name?",
                                 fontFamily = PlayfairDisplayFontFamily,
                                 fontWeight = FontWeight.Bold,
                                 fontSize = 23.sp,
@@ -571,7 +463,7 @@ fun StudentProfileSurveyCard(
                             )
                             Spacer(modifier = Modifier.height(6.dp))
                             Text(
-                                text = "What is your name and Google email so we can attach your personal shelf and notes?",
+                                text = "No registration or account needed. Your name, reading progress, bookmarks, and notes stay saved automatically on your phone.",
                                 fontFamily = LoraFontFamily,
                                 fontSize = 13.5.sp,
                                 lineHeight = 19.sp,
@@ -583,35 +475,10 @@ fun StudentProfileSurveyCard(
                                 value = studentName,
                                 onValueChange = { if (it.length <= 60) onNameChange(it) },
                                 label = { Text("Your Name (e.g. Engr. Alex Rivera)") },
-                                placeholder = { Text("Enter your full name or nickname") },
+                                placeholder = { Text("Enter your name or nickname") },
                                 singleLine = true,
                                 keyboardOptions = KeyboardOptions(
                                     capitalization = KeyboardCapitalization.Words,
-                                    imeAction = ImeAction.Next
-                                ),
-                                colors = OutlinedTextFieldDefaults.colors(
-                                    focusedTextColor = EspressoInk,
-                                    unfocusedTextColor = EspressoInk,
-                                    focusedBorderColor = EspressoInk,
-                                    unfocusedBorderColor = EspressoInk.copy(alpha = 0.35f),
-                                    focusedLabelColor = EspressoInk,
-                                    unfocusedLabelColor = EspressoInkMuted,
-                                    cursorColor = EspressoInk
-                                ),
-                                shape = RoundedCornerShape(14.dp),
-                                modifier = Modifier.fillMaxWidth()
-                            )
-
-                            Spacer(modifier = Modifier.height(12.dp))
-
-                            OutlinedTextField(
-                                value = studentEmail,
-                                onValueChange = { if (it.length <= 80) onEmailChange(it) },
-                                label = { Text("Google Email (optional)") },
-                                placeholder = { Text("you@gmail.com") },
-                                singleLine = true,
-                                keyboardOptions = KeyboardOptions(
-                                    keyboardType = KeyboardType.Email,
                                     imeAction = ImeAction.Done
                                 ),
                                 colors = OutlinedTextFieldDefaults.colors(
@@ -624,14 +491,15 @@ fun StudentProfileSurveyCard(
                                     cursorColor = EspressoInk
                                 ),
                                 shape = RoundedCornerShape(14.dp),
-                                modifier = Modifier.fillMaxWidth()
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .testTag("survey_name_input")
                             )
 
                             Spacer(modifier = Modifier.height(14.dp))
 
-                            // Quick-tap preset name chips if user wants 1-tap setup
                             Text(
-                                text = "Or tap a quick title prefix:",
+                                text = "Quick title prefixes:",
                                 fontFamily = DmSansFontFamily,
                                 fontSize = 11.5.sp,
                                 color = EspressoInkMuted
@@ -676,7 +544,7 @@ fun StudentProfileSurveyCard(
                             )
                             Spacer(modifier = Modifier.height(6.dp))
                             Text(
-                                text = "Tap your current BS Civil Engineering curriculum year so we can prioritize your textbooks:",
+                                text = "Tap your current BS Civil Engineering curriculum year so we can highlight your courses:",
                                 fontFamily = LoraFontFamily,
                                 fontSize = 13.5.sp,
                                 lineHeight = 19.sp,
@@ -700,21 +568,65 @@ fun StudentProfileSurveyCard(
 
                         2 -> {
                             Text(
-                                text = "3. Current Course or Subject Focus?",
+                                text = "3. Course & Subject Focus",
                                 fontFamily = PlayfairDisplayFontFamily,
                                 fontWeight = FontWeight.Bold,
                                 fontSize = 22.sp,
                                 color = EspressoInk
                             )
-                            Spacer(modifier = Modifier.height(6.dp))
+                            Spacer(modifier = Modifier.height(4.dp))
                             Text(
-                                text = "Pick the Civil Engineering subject you're studying most right now (Year $selectedYear courses highlighted first):",
+                                text = "Choose as many Civil Engineering subjects as you want to focus on (tap multiple to select/deselect):",
                                 fontFamily = LoraFontFamily,
-                                fontSize = 13.5.sp,
-                                lineHeight = 19.sp,
+                                fontSize = 13.sp,
+                                lineHeight = 18.sp,
                                 color = EspressoInkMuted
                             )
-                            Spacer(modifier = Modifier.height(14.dp))
+                            Spacer(modifier = Modifier.height(10.dp))
+
+                            // Quick Multi-Select Shortcut Chips
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.spacedBy(8.dp)
+                            ) {
+                                val yearSubjectNames = remember(selectedYear) {
+                                    CivilSubject.entries
+                                        .filter { it.curriculumYear == selectedYear }
+                                        .map { it.name }
+                                }
+                                Surface(
+                                    onClick = { onSelectMultipleSubjects(yearSubjectNames) },
+                                    shape = RoundedCornerShape(999.dp),
+                                    color = SageOlive.copy(alpha = 0.35f)
+                                ) {
+                                    Text(
+                                        text = "Select All Year $selectedYear (${yearSubjectNames.size})",
+                                        fontFamily = DmSansFontFamily,
+                                        fontWeight = FontWeight.Bold,
+                                        fontSize = 11.sp,
+                                        color = EspressoInk,
+                                        modifier = Modifier.padding(horizontal = 11.dp, vertical = 6.dp)
+                                    )
+                                }
+                                Surface(
+                                    onClick = {
+                                        onSelectMultipleSubjects(CivilSubject.entries.map { it.name })
+                                    },
+                                    shape = RoundedCornerShape(999.dp),
+                                    color = SageOlive.copy(alpha = 0.25f)
+                                ) {
+                                    Text(
+                                        text = "Select All 9 Subjects",
+                                        fontFamily = DmSansFontFamily,
+                                        fontWeight = FontWeight.SemiBold,
+                                        fontSize = 11.sp,
+                                        color = EspressoInk,
+                                        modifier = Modifier.padding(horizontal = 11.dp, vertical = 6.dp)
+                                    )
+                                }
+                            }
+
+                            Spacer(modifier = Modifier.height(12.dp))
 
                             val orderedSubjects = remember(selectedYear) {
                                 CivilSubject.entries.sortedWith(
@@ -730,10 +642,10 @@ fun StudentProfileSurveyCard(
                                         horizontalArrangement = Arrangement.spacedBy(8.dp)
                                     ) {
                                         pair.forEach { subject ->
-                                            val isSelected = selectedSubjectKey == subject.name
+                                            val isSelected = subject.name in selectedSubjectKeys
                                             val isYearMatch = subject.curriculumYear == selectedYear
                                             Surface(
-                                                onClick = { onSelectSubjectKey(subject.name) },
+                                                onClick = { onToggleSubjectKey(subject.name) },
                                                 shape = RoundedCornerShape(14.dp),
                                                 color = if (isSelected) EspressoInk else Color.White.copy(alpha = 0.72f),
                                                 modifier = Modifier
@@ -764,9 +676,9 @@ fun StudentProfileSurveyCard(
                                                         if (isSelected) {
                                                             Icon(
                                                                 imageVector = Icons.Filled.CheckCircle,
-                                                                contentDescription = null,
+                                                                contentDescription = "Selected",
                                                                 tint = SandCream,
-                                                                modifier = Modifier.size(14.dp)
+                                                                modifier = Modifier.size(15.dp)
                                                             )
                                                         }
                                                     }
@@ -801,33 +713,33 @@ fun StudentProfileSurveyCard(
                         }
 
                         else -> {
-                            val chosenSubject = CivilSubject.fromKey(selectedSubjectKey)
+                            val chosenSubjects = selectedSubjectKeys.map { CivilSubject.fromKey(it) }.distinct()
                             Text(
-                                text = "4. What Is Your Primary Study Goal?",
+                                text = "4. Primary Study Goals",
                                 fontFamily = PlayfairDisplayFontFamily,
                                 fontWeight = FontWeight.Bold,
                                 fontSize = 22.sp,
                                 color = EspressoInk
                             )
-                            Spacer(modifier = Modifier.height(6.dp))
+                            Spacer(modifier = Modifier.height(4.dp))
                             Text(
-                                text = "We'll curate your Recommend tab and Home banner around this goal:",
+                                text = "Select one or more study goals — we'll rank your textbook recommendations based on everything you chose:",
                                 fontFamily = LoraFontFamily,
-                                fontSize = 13.5.sp,
-                                lineHeight = 19.sp,
+                                fontSize = 13.sp,
+                                lineHeight = 18.sp,
                                 color = EspressoInkMuted
                             )
                             Spacer(modifier = Modifier.height(14.dp))
 
                             Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
                                 StudyGoalOptions.forEach { goal ->
-                                    val isSelected = selectedGoal == goal.title
+                                    val isSelected = goal.title in selectedGoals
                                     SurveyChoiceButton(
                                         badge = null,
                                         title = goal.title,
                                         subtitle = goal.subtitle,
                                         selected = isSelected,
-                                        onClick = { onSelectGoal(goal.title) }
+                                        onClick = { onToggleGoal(goal.title) }
                                     )
                                 }
                             }
@@ -842,7 +754,7 @@ fun StudentProfileSurveyCard(
                             ) {
                                 Column(modifier = Modifier.padding(horizontal = 14.dp, vertical = 10.dp)) {
                                     Text(
-                                        text = "YOUR PERSONALIZED PROFILE PREVIEW",
+                                        text = "YOUR PERSONALIZED STUDY PLAN",
                                         fontFamily = DmSansFontFamily,
                                         fontWeight = FontWeight.Bold,
                                         fontSize = 10.5.sp,
@@ -850,16 +762,24 @@ fun StudentProfileSurveyCard(
                                     )
                                     Spacer(modifier = Modifier.height(3.dp))
                                     Text(
-                                        text = "${studentName.ifBlank { "Civil Engineer" }} · Year $selectedYear · ${chosenSubject.shortName} (${chosenSubject.courseCode})",
+                                        text = "${studentName.ifBlank { "Civil Engineer" }} · Year $selectedYear",
                                         fontFamily = DmSansFontFamily,
                                         fontWeight = FontWeight.Bold,
-                                        fontSize = 13.sp,
+                                        fontSize = 13.5.sp,
+                                        color = EspressoInk
+                                    )
+                                    Spacer(modifier = Modifier.height(2.dp))
+                                    Text(
+                                        text = "Focus (${chosenSubjects.size}): ${chosenSubjects.joinToString(", ") { "${it.shortName} (${it.courseCode})" }}",
+                                        fontFamily = DmSansFontFamily,
+                                        fontWeight = FontWeight.SemiBold,
+                                        fontSize = 12.sp,
                                         color = EspressoInk
                                     )
                                     Text(
-                                        text = "Goal: $selectedGoal",
+                                        text = "Goals (${selectedGoals.size}): ${selectedGoals.joinToString(" · ")}",
                                         fontFamily = LoraFontFamily,
-                                        fontSize = 12.sp,
+                                        fontSize = 11.5.sp,
                                         color = EspressoInkMuted
                                     )
                                 }
@@ -869,26 +789,30 @@ fun StudentProfileSurveyCard(
 
                     Spacer(modifier = Modifier.height(20.dp))
 
-                    // Bottom Navigation Buttons (Back / Next or Finish)
+                    // Bottom Navigation Buttons (Previous / Next Question or Recommend)
                     Row(
                         modifier = Modifier.fillMaxWidth(),
                         horizontalArrangement = Arrangement.SpaceBetween,
                         verticalAlignment = Alignment.CenterVertically
                     ) {
-                        TextButton(onClick = onBack) {
-                            Icon(
-                                imageVector = Icons.AutoMirrored.Filled.ArrowBack,
-                                contentDescription = "Back",
-                                tint = EspressoInk,
-                                modifier = Modifier.size(16.dp)
-                            )
-                            Spacer(modifier = Modifier.width(6.dp))
-                            Text(
-                                text = if (currentStep == 0) "Back" else "Previous",
-                                fontFamily = DmSansFontFamily,
-                                fontWeight = FontWeight.SemiBold,
-                                color = EspressoInk
-                            )
+                        if (currentStep > 0 || canDismissOnFirstStep) {
+                            TextButton(onClick = onBack) {
+                                Icon(
+                                    imageVector = Icons.AutoMirrored.Filled.ArrowBack,
+                                    contentDescription = "Back",
+                                    tint = EspressoInk,
+                                    modifier = Modifier.size(16.dp)
+                                )
+                                Spacer(modifier = Modifier.width(6.dp))
+                                Text(
+                                    text = if (currentStep == 0) "Cancel" else "Previous",
+                                    fontFamily = DmSansFontFamily,
+                                    fontWeight = FontWeight.SemiBold,
+                                    color = EspressoInk
+                                )
+                            }
+                        } else {
+                            Spacer(modifier = Modifier.width(8.dp))
                         }
 
                         Button(
@@ -898,13 +822,15 @@ fun StudentProfileSurveyCard(
                                 containerColor = EspressoInk,
                                 contentColor = SandCreamLight
                             ),
-                            modifier = Modifier.height(46.dp)
+                            modifier = Modifier
+                                .height(46.dp)
+                                .testTag(if (currentStep < 3) "survey_next_button" else "survey_recommend_button")
                         ) {
                             Text(
-                                text = if (currentStep < 3) "Next Question" else "Build My Recommendations",
+                                text = if (currentStep < 3) "Next Question" else "Recommend",
                                 fontFamily = DmSansFontFamily,
                                 fontWeight = FontWeight.SemiBold,
-                                fontSize = 14.sp,
+                                fontSize = 14.5.sp,
                                 color = SandCreamLight
                             )
                             Spacer(modifier = Modifier.width(8.dp))
@@ -992,51 +918,6 @@ private fun SurveyChoiceButton(
                     )
                 }
             }
-        }
-    }
-}
-
-@Composable
-private fun AuthBenefitRow(
-    icon: ImageVector,
-    title: String,
-    subtitle: String
-) {
-    Row(
-        modifier = Modifier.fillMaxWidth(),
-        verticalAlignment = Alignment.Top
-    ) {
-        Box(
-            contentAlignment = Alignment.Center,
-            modifier = Modifier
-                .size(34.dp)
-                .clip(CircleShape)
-                .background(SageOlive.copy(alpha = 0.45f))
-        ) {
-            Icon(
-                imageVector = icon,
-                contentDescription = null,
-                tint = EspressoInk,
-                modifier = Modifier.size(17.dp)
-            )
-        }
-        Spacer(modifier = Modifier.width(12.dp))
-        Column(modifier = Modifier.weight(1f)) {
-            Text(
-                text = title,
-                fontFamily = DmSansFontFamily,
-                fontWeight = FontWeight.SemiBold,
-                fontSize = 13.5.sp,
-                color = EspressoInk
-            )
-            Spacer(modifier = Modifier.height(2.dp))
-            Text(
-                text = subtitle,
-                fontFamily = DmSansFontFamily,
-                fontSize = 12.sp,
-                lineHeight = 16.5.sp,
-                color = EspressoInkMuted
-            )
         }
     }
 }

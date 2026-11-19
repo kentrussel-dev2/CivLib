@@ -108,19 +108,22 @@ fun RealPdfBookPageView(
             .fillMaxSize()
             .background(backgroundColor)
     ) {
-        // Request crisper resolution when zoomed into dense equations or engineering drawings
+        // Deterministic resolution buckets so toggling bars or turning pages never invalidates cached bitmaps
         val zoomBucket = if (isActivePage && zoomScale >= 1.55f) 2 else 1
-        val targetWidthPx = remember(maxWidth, density, zoomBucket, isSpreadHalf) {
-            val multiplier = when {
-                zoomBucket == 2 -> 2.1f
-                isSpreadHalf -> 1.35f
-                else -> 1.55f
+        val targetWidthPx = remember(zoomBucket, isSpreadHalf) {
+            when {
+                zoomBucket == 2 -> 1920
+                isSpreadHalf -> 1024
+                else -> 1408
             }
-            with(density) { (maxWidth.toPx() * multiplier).toInt().coerceIn(720, 2100) }
         }
 
-        val renderedBitmap by produceState<Bitmap?>(
-            initialValue = null,
+        val immediateCached = remember(session, sessionReadyVersion, pageIndex, targetWidthPx, cropMargins) {
+            session?.getCachedPage(pageIndex, targetWidthPx, cropMargins)
+        }
+
+        val asyncBitmap by produceState<Bitmap?>(
+            initialValue = immediateCached,
             session,
             sessionReadyVersion,
             pageIndex,
@@ -128,11 +131,16 @@ fun RealPdfBookPageView(
             cropMargins
         ) {
             val active = session ?: return@produceState
-            value = active.renderPage(
-                pageIndex = pageIndex,
-                targetWidthPx = targetWidthPx,
-                cropMargins = cropMargins
-            )
+            val cached = active.getCachedPage(pageIndex, targetWidthPx, cropMargins)
+            if (cached != null) {
+                value = cached
+            } else {
+                value = active.renderPage(
+                    pageIndex = pageIndex,
+                    targetWidthPx = targetWidthPx,
+                    cropMargins = cropMargins
+                )
+            }
             if (isActivePage) {
                 val neighborTargets = if (isSpreadHalf) {
                     listOf(pageIndex + 1, pageIndex + 2, pageIndex + 3, pageIndex - 1, pageIndex - 2)
@@ -142,6 +150,7 @@ fun RealPdfBookPageView(
                 active.prefetchPages(neighborTargets, targetWidthPx, cropMargins)
             }
         }
+        val renderedBitmap = immediateCached ?: asyncBitmap
 
         val pageFilter = remember(paperTheme) { pdfColorFilterForTheme(paperTheme) }
 

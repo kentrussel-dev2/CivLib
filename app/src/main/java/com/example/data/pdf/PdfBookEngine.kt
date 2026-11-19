@@ -165,12 +165,30 @@ class PdfBookSession(private val pdfFile: File) : AutoCloseable {
     @Volatile
     private var isClosed = false
 
-    private val pageCache = object : LruCache<String, Bitmap>(8) {}
+    private val pageCache = object : LruCache<String, Bitmap>(16) {}
     private val thumbnailCache = object : LruCache<Int, Bitmap>(32) {}
 
     @Volatile
     var pageCount: Int = 0
         private set
+
+    fun quantizeTargetWidth(targetWidthPx: Int): Int {
+        val clampedWidth = targetWidthPx.coerceIn(640, 2200)
+        return ((clampedWidth + 63) / 64) * 64
+    }
+
+    fun getCachedPage(
+        pageIndex: Int,
+        targetWidthPx: Int,
+        cropMargins: Boolean = false
+    ): Bitmap? {
+        if (isClosed || pageIndex < 0) return null
+        val quantizedWidth = quantizeTargetWidth(targetWidthPx)
+        val cacheKey = "${pageIndex}_${quantizedWidth}_$cropMargins"
+        return synchronized(pageCache) {
+            pageCache.get(cacheKey)?.takeIf { !it.isRecycled }
+        }
+    }
 
     private fun ensureOpenLocked(): PdfRenderer {
         renderer?.let { return it }
@@ -202,9 +220,7 @@ class PdfBookSession(private val pdfFile: File) : AutoCloseable {
         cropMargins: Boolean = false
     ): Bitmap? = withContext(Dispatchers.IO) {
         if (isClosed || pageIndex < 0) return@withContext null
-        val clampedWidth = targetWidthPx.coerceIn(640, 2200)
-        // Quantize width slightly to maximize cache hits across minor layout changes
-        val quantizedWidth = ((clampedWidth + 63) / 64) * 64
+        val quantizedWidth = quantizeTargetWidth(targetWidthPx)
         val cacheKey = "${pageIndex}_${quantizedWidth}_$cropMargins"
 
         synchronized(pageCache) {

@@ -157,7 +157,9 @@ fun CivLibApp(
                         curriculumYear = survey.curriculumYear,
                         primarySubjectKey = survey.primarySubjectKey,
                         studyGoal = survey.studyGoal,
-                        studyMantra = survey.studyMantra
+                        studyMantra = survey.studyMantra,
+                        selectedSubjectKeys = survey.selectedSubjectKeys,
+                        selectedGoals = survey.selectedGoals
                     )
                     localSessionActive = true
                 }
@@ -165,16 +167,11 @@ fun CivLibApp(
         )
     } else {
         val sessionKey = user?.uid ?: "local_student"
-        // Key by UID so switching accounts or signing out disposes Firestore listeners cleanly
         key(sessionKey) {
             AuthenticatedCivLibApp(
                 currentUser = user,
                 incomingPdfUri = incomingPdfUri,
-                onConsumeIncomingPdf = onConsumeIncomingPdf,
-                onSignedOut = {
-                    cloudRepo.clearLocalSession()
-                    localSessionActive = false
-                }
+                onConsumeIncomingPdf = onConsumeIncomingPdf
             )
         }
     }
@@ -430,7 +427,9 @@ private fun AuthenticatedCivLibApp(
                                     curriculumYear = res.curriculumYear,
                                     primarySubjectKey = res.primarySubjectKey,
                                     studyGoal = res.studyGoal,
-                                    studyMantra = res.studyMantra
+                                    studyMantra = res.studyMantra,
+                                    selectedSubjectKeys = res.selectedSubjectKeys,
+                                    selectedGoals = res.selectedGoals
                                 )
                             },
                             onSignOutClick = handleSignOut,

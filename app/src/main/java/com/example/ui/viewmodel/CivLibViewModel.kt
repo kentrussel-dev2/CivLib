@@ -257,23 +257,23 @@ class CivLibViewModel(
         initialValue = LibraryUiState()
     )
 
-    // Next recommended textbook matching her survey subject & year that she hasn't completed yet
+    // Next recommended textbook matching her multi-select survey subjects, goals & year that she hasn't completed yet
     val nextChronologicalBook: StateFlow<BookEntity?> = combine(
         libraryUiState,
         completedBookIds,
         userProfileState
     ) { libState, completed, profileState ->
         val profile = (profileState as? CloudUiState.Success)?.data
-        val preferredSubj = profile?.primarySubjectKey
-        val preferredYear = (profile?.curriculumYear ?: 1L).toInt().coerceIn(1, 4)
-
         val uncompleted = libState.books.filter { book ->
             sanitizeFirestoreDocId(book.id) !in completed && book.id !in completed
         }
-        uncompleted.firstOrNull { !preferredSubj.isNullOrBlank() && it.subjectKey.equals(preferredSubj, ignoreCase = true) }
-            ?: uncompleted.firstOrNull { CivilSubject.fromKey(it.subjectKey).curriculumYear == preferredYear }
-            ?: uncompleted.firstOrNull()
-            ?: libState.books.firstOrNull()
+        if (profile != null && uncompleted.isNotEmpty()) {
+            uncompleted.maxByOrNull { book ->
+                com.example.data.firebase.scoreBookForProfile(book, profile)
+            }
+        } else {
+            uncompleted.firstOrNull() ?: libState.books.firstOrNull()
+        }
     }.stateIn(
         scope = viewModelScope,
         started = SharingStarted.WhileSubscribed(5000L),
@@ -342,7 +342,9 @@ class CivLibViewModel(
         curriculumYear: Int,
         primarySubjectKey: String,
         studyGoal: String,
-        studyMantra: String
+        studyMantra: String,
+        selectedSubjectKeys: List<String> = listOf(primarySubjectKey),
+        selectedGoals: List<String> = listOf(studyGoal)
     ) {
         viewModelScope.launch {
             cloudRepository.saveProfileOnboardingSurvey(
@@ -352,11 +354,13 @@ class CivLibViewModel(
                 curriculumYear = curriculumYear,
                 primarySubjectKey = primarySubjectKey,
                 studyGoal = studyGoal,
-                studyMantra = studyMantra
+                studyMantra = studyMantra,
+                selectedSubjectKeys = selectedSubjectKeys,
+                selectedGoals = selectedGoals
             ).onSuccess { profile ->
-                val subj = CivilSubject.fromKey(profile.primarySubjectKey)
+                val count = profile.effectiveSubjectKeys.size
                 _snackbarMessage.value =
-                    "Welcome ${profile.displayName}! Personalized for Year ${profile.curriculumYear} · ${subj.shortName}"
+                    "Recommendations updated for ${profile.displayName} (Year ${profile.curriculumYear} · $count focus ${if (count == 1) "subject" else "subjects"})"
             }.onFailure { err ->
                 _snackbarMessage.value = err.localizedMessage ?: "Could not save profile preferences"
             }
@@ -460,11 +464,39 @@ class CivLibViewModel(
         }
     }
 
+    private fun filterLocalBooksInstant(rawQuery: String): List<BookEntity> {
+        val q = rawQuery.trim()
+        if (q.isEmpty()) return emptyList()
+        val lowerQ = q.lowercase()
+        val compactQ = lowerQ.replace(" ", "").replace("-", "")
+        val tokens = lowerQ.split(Regex("\\s+")).filter { it.isNotBlank() }
+
+        return libraryUiState.value.books
+            .filter { book ->
+                val subj = CivilSubject.fromKey(book.subjectKey)
+                val haystack = "${book.title} ${book.author} ${book.courseCode} ${subj.shortName} ${subj.displayName} year ${subj.curriculumYear} y${subj.curriculumYear} ${book.isbn} ${book.description} ${book.publisher}".lowercase()
+                val compactHaystack = haystack.replace(" ", "").replace("-", "")
+                tokens.all { tok -> haystack.contains(tok) } || compactHaystack.contains(compactQ)
+            }
+            .sortedWith(
+                compareByDescending<BookEntity> { it.title.startsWith(q, ignoreCase = true) }
+                    .thenByDescending { it.title.contains(q, ignoreCase = true) }
+                    .thenByDescending { it.courseCode.replace(" ", "").contains(compactQ, ignoreCase = true) }
+                    .thenByDescending { CivilSubject.fromKey(it.subjectKey).shortName.contains(q, ignoreCase = true) }
+                    .thenByDescending { it.isOfflineAvailable }
+                    .thenBy { it.title.lowercase() }
+            )
+    }
+
     fun onSearchQueryChanged(newQuery: String) {
+        val instantLocal = filterLocalBooksInstant(newQuery)
         _searchState.update {
             it.copy(
                 query = newQuery,
                 isbnBadgeLabel = IsbnValidator.detectFormatLabel(newQuery),
+                hasSearched = newQuery.isNotBlank(),
+                localResults = instantLocal,
+                remoteResults = if (newQuery.isBlank()) emptyList() else it.remoteResults,
                 statusMessage = null
             )
         }
@@ -478,11 +510,14 @@ class CivLibViewModel(
         val targetQuery = (explicitQuery ?: _searchState.value.query).trim()
         if (targetQuery.isEmpty()) return
 
+        val instantLocal = filterLocalBooksInstant(targetQuery)
         _searchState.update {
             it.copy(
                 query = targetQuery,
                 isbnBadgeLabel = IsbnValidator.detectFormatLabel(targetQuery),
                 isSearching = true,
+                hasSearched = true,
+                localResults = instantLocal,
                 statusMessage = null
             )
         }
@@ -492,11 +527,12 @@ class CivLibViewModel(
                 rawQuery = targetQuery,
                 isOnline = networkMonitor.isCurrentlyOnline() || isOnline.value
             )
+            val mergedLocal = (instantLocal + combined.localMatches).distinctBy { it.id }
             _searchState.update {
                 it.copy(
                     isSearching = false,
                     hasSearched = true,
-                    localResults = combined.localMatches,
+                    localResults = mergedLocal,
                     remoteResults = combined.remoteResults,
                     statusMessage = combined.errorMessage
                 )

@@ -811,3 +811,373 @@ fun ReaderReviewNoteSheet(
         }
     }
 }
+
+/**
+ * Left vertical option bar for 2-Page Landscape mode so controls sit cleanly on the left side
+ * without covering the top or bottom of the two-page textbook spread.
+ */
+@Composable
+fun ReaderLandscapeLeftBarOverlay(
+    isPdfMode: Boolean,
+    isBookmarked: Boolean,
+    isTwoPageSpreadActive: Boolean,
+    canToggleSpread: Boolean,
+    canGoPrevious: Boolean,
+    palette: ReaderVisualPalette,
+    onBack: () -> Unit,
+    onToggleSpreadLayout: () -> Unit,
+    onShowPageGrid: () -> Unit,
+    onShowJumpDialog: () -> Unit,
+    onToggleBookmark: () -> Unit,
+    onShowNoteSheet: () -> Unit,
+    onShowBookmarksSheet: () -> Unit,
+    onPrevious: () -> Unit,
+    modifier: Modifier = Modifier
+) {
+    Surface(
+        color = palette.card.copy(alpha = 0.96f),
+        shadowElevation = 6.dp,
+        shape = RoundedCornerShape(topEnd = 16.dp, bottomEnd = 16.dp),
+        modifier = modifier
+            .width(56.dp)
+            .padding(vertical = 6.dp)
+    ) {
+        Column(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(vertical = 6.dp, horizontal = 4.dp),
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.SpaceBetween
+        ) {
+            IconButton(
+                onClick = onBack,
+                modifier = Modifier
+                    .size(38.dp)
+                    .testTag("reader_back_button")
+            ) {
+                Icon(
+                    imageVector = Icons.AutoMirrored.Filled.ArrowBack,
+                    contentDescription = "Close reader",
+                    tint = palette.ink,
+                    modifier = Modifier.size(20.dp)
+                )
+            }
+
+            if (canToggleSpread) {
+                Surface(
+                    onClick = onToggleSpreadLayout,
+                    shape = RoundedCornerShape(8.dp),
+                    color = if (isTwoPageSpreadActive) palette.accent else palette.bg,
+                    modifier = Modifier
+                        .border(1.dp, palette.border, RoundedCornerShape(8.dp))
+                        .testTag("reader_top_spread_toggle")
+                ) {
+                    Column(
+                        modifier = Modifier.padding(horizontal = 7.dp, vertical = 4.dp),
+                        horizontalAlignment = Alignment.CenterHorizontally
+                    ) {
+                        Icon(
+                            imageVector = Icons.AutoMirrored.Filled.ChromeReaderMode,
+                            contentDescription = "Switch to 1-page portrait",
+                            tint = if (isTwoPageSpreadActive) Color.White else palette.ink,
+                            modifier = Modifier.size(14.dp)
+                        )
+                        Text(
+                            text = if (isTwoPageSpreadActive) "2P" else "1P",
+                            style = MaterialTheme.typography.labelSmall,
+                            fontSize = 10.sp,
+                            color = if (isTwoPageSpreadActive) Color.White else palette.ink
+                        )
+                    }
+                }
+            }
+
+            if (isPdfMode) {
+                IconButton(
+                    onClick = onShowPageGrid,
+                    modifier = Modifier
+                        .size(36.dp)
+                        .testTag("reader_page_grid_button")
+                ) {
+                    Icon(
+                        imageVector = Icons.Filled.GridView,
+                        contentDescription = "Browse book pages visually",
+                        tint = palette.ink,
+                        modifier = Modifier.size(19.dp)
+                    )
+                }
+            }
+
+            IconButton(
+                onClick = onShowJumpDialog,
+                modifier = Modifier
+                    .size(36.dp)
+                    .testTag("reader_jump_page_button")
+            ) {
+                Icon(
+                    imageVector = Icons.Filled.Pin,
+                    contentDescription = "Jump to page number",
+                    tint = palette.ink,
+                    modifier = Modifier.size(19.dp)
+                )
+            }
+
+            IconButton(
+                onClick = onToggleBookmark,
+                modifier = Modifier
+                    .size(36.dp)
+                    .testTag("reader_bookmark_button")
+            ) {
+                Icon(
+                    imageVector = if (isBookmarked) Icons.Filled.Bookmark
+                    else Icons.Outlined.BookmarkBorder,
+                    contentDescription = "Bookmark page",
+                    tint = if (isBookmarked) DraftingBrass else palette.ink,
+                    modifier = Modifier.size(19.dp)
+                )
+            }
+
+            IconButton(
+                onClick = onShowNoteSheet,
+                modifier = Modifier
+                    .size(36.dp)
+                    .testTag("reader_note_button")
+            ) {
+                Icon(
+                    imageVector = Icons.Filled.EditNote,
+                    contentDescription = "Add study review note",
+                    tint = palette.ink,
+                    modifier = Modifier.size(19.dp)
+                )
+            }
+
+            IconButton(
+                onClick = onShowBookmarksSheet,
+                modifier = Modifier
+                    .size(36.dp)
+                    .testTag("reader_toc_button")
+            ) {
+                Icon(
+                    imageVector = Icons.AutoMirrored.Filled.List,
+                    contentDescription = "Contents and bookmarks",
+                    tint = palette.ink,
+                    modifier = Modifier.size(19.dp)
+                )
+            }
+
+            Surface(
+                onClick = onPrevious,
+                enabled = canGoPrevious,
+                shape = RoundedCornerShape(10.dp),
+                color = if (canGoPrevious) palette.bg else palette.bg.copy(alpha = 0.45f),
+                modifier = Modifier
+                    .border(1.dp, palette.border, RoundedCornerShape(10.dp))
+                    .testTag("reader_prev_page_button")
+            ) {
+                Box(
+                    contentAlignment = Alignment.Center,
+                    modifier = Modifier.size(width = 42.dp, height = 36.dp)
+                ) {
+                    Icon(
+                        imageVector = Icons.AutoMirrored.Filled.KeyboardArrowLeft,
+                        contentDescription = "Previous pages",
+                        tint = if (canGoPrevious) palette.ink else palette.subtle.copy(alpha = 0.4f)
+                    )
+                }
+            }
+        }
+    }
+}
+
+/**
+ * Right vertical option bar for 2-Page Landscape mode so paper theme, margin trim, page indicator,
+ * and next-page controls sit on the right side without covering the two-page textbook spread.
+ */
+@Composable
+fun ReaderLandscapeRightBarOverlay(
+    spreadLeftIndex: Int,
+    effectivePageCount: Int,
+    isPdfMode: Boolean,
+    preferences: ReaderPreferences,
+    palette: ReaderVisualPalette,
+    canGoNext: Boolean,
+    onNext: () -> Unit,
+    onShowJumpDialog: () -> Unit,
+    onSelectPaperTheme: (PaperTheme) -> Unit,
+    onToggleCropMargins: () -> Unit,
+    onAdjustFontSize: (Float) -> Unit,
+    modifier: Modifier = Modifier
+) {
+    val leftNum = spreadLeftIndex + 1
+    val rightNum = (spreadLeftIndex + 2).coerceAtMost(effectivePageCount)
+    val spreadBadge = if (rightNum > leftNum) "$leftNum–$rightNum" else "$leftNum"
+
+    Surface(
+        color = palette.card.copy(alpha = 0.96f),
+        shadowElevation = 6.dp,
+        shape = RoundedCornerShape(topStart = 16.dp, bottomStart = 16.dp),
+        modifier = modifier
+            .width(60.dp)
+            .padding(vertical = 6.dp)
+    ) {
+        Column(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(vertical = 8.dp, horizontal = 5.dp),
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.SpaceBetween
+        ) {
+            // Compact Page Indicator Pill (tappable to jump to any page)
+            Surface(
+                onClick = onShowJumpDialog,
+                shape = RoundedCornerShape(8.dp),
+                color = palette.bg,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .border(1.dp, palette.border, RoundedCornerShape(8.dp))
+            ) {
+                Column(
+                    modifier = Modifier.padding(vertical = 5.dp, horizontal = 2.dp),
+                    horizontalAlignment = Alignment.CenterHorizontally
+                ) {
+                    Text(
+                        text = spreadBadge,
+                        fontFamily = JetBrainsMonoFontFamily,
+                        fontWeight = FontWeight.Bold,
+                        fontSize = 10.sp,
+                        color = palette.ink,
+                        maxLines = 1
+                    )
+                    Text(
+                        text = "/$effectivePageCount",
+                        fontFamily = JetBrainsMonoFontFamily,
+                        fontSize = 9.sp,
+                        color = palette.subtle,
+                        maxLines = 1
+                    )
+                }
+            }
+
+            // Vertical Paper Theme Stack (Book / Crisp / Night)
+            Column(
+                verticalArrangement = Arrangement.spacedBy(5.dp),
+                horizontalAlignment = Alignment.CenterHorizontally,
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                PaperTheme.entries.forEach { theme ->
+                    val selected = theme == preferences.paperTheme
+                    Surface(
+                        onClick = { onSelectPaperTheme(theme) },
+                        shape = RoundedCornerShape(8.dp),
+                        color = if (selected) palette.accent else palette.bg,
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .border(1.dp, palette.border, RoundedCornerShape(8.dp))
+                            .testTag("paper_theme_${theme.name.lowercase()}")
+                    ) {
+                        Box(
+                            contentAlignment = Alignment.Center,
+                            modifier = Modifier.padding(vertical = 6.dp)
+                        ) {
+                            Text(
+                                text = when (theme) {
+                                    PaperTheme.PARCHMENT -> "Book"
+                                    PaperTheme.CRISP -> "Crisp"
+                                    PaperTheme.BLUEPRINT_DARK -> "Night"
+                                },
+                                style = MaterialTheme.typography.labelSmall,
+                                fontSize = 10.sp,
+                                color = if (selected) Color.White else palette.ink
+                            )
+                        }
+                    }
+                }
+            }
+
+            // Trim PDF Margins or Font Size Controls
+            if (isPdfMode) {
+                Surface(
+                    onClick = onToggleCropMargins,
+                    shape = RoundedCornerShape(8.dp),
+                    color = if (preferences.cropPdfMargins) palette.accent else palette.bg,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .border(1.dp, palette.border, RoundedCornerShape(8.dp))
+                        .testTag("reader_crop_margins_toggle")
+                ) {
+                    Column(
+                        modifier = Modifier.padding(vertical = 6.dp),
+                        horizontalAlignment = Alignment.CenterHorizontally
+                    ) {
+                        Icon(
+                            imageVector = Icons.Filled.Crop,
+                            contentDescription = "Trim wide PDF margins",
+                            tint = if (preferences.cropPdfMargins) Color.White else palette.ink,
+                            modifier = Modifier.size(14.dp)
+                        )
+                        Text(
+                            text = "Trim",
+                            style = MaterialTheme.typography.labelSmall,
+                            fontSize = 9.5.sp,
+                            color = if (preferences.cropPdfMargins) Color.White else palette.ink
+                        )
+                    }
+                }
+            } else {
+                Column(
+                    verticalArrangement = Arrangement.spacedBy(4.dp),
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Surface(
+                        onClick = { onAdjustFontSize(+1.5f) },
+                        shape = RoundedCornerShape(8.dp),
+                        color = palette.bg,
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .border(1.dp, palette.border, RoundedCornerShape(8.dp))
+                    ) {
+                        Box(contentAlignment = Alignment.Center, modifier = Modifier.padding(vertical = 5.dp)) {
+                            Text("A+", style = MaterialTheme.typography.labelSmall, color = palette.ink)
+                        }
+                    }
+                    Surface(
+                        onClick = { onAdjustFontSize(-1.5f) },
+                        shape = RoundedCornerShape(8.dp),
+                        color = palette.bg,
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .border(1.dp, palette.border, RoundedCornerShape(8.dp))
+                    ) {
+                        Box(contentAlignment = Alignment.Center, modifier = Modifier.padding(vertical = 5.dp)) {
+                            Text("A-", style = MaterialTheme.typography.labelSmall, color = palette.ink)
+                        }
+                    }
+                }
+            }
+
+            // Next Spread Button
+            Surface(
+                onClick = onNext,
+                enabled = canGoNext,
+                shape = RoundedCornerShape(10.dp),
+                color = if (canGoNext) palette.bg else palette.bg.copy(alpha = 0.45f),
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .border(1.dp, palette.border, RoundedCornerShape(10.dp))
+                    .testTag("reader_next_page_button")
+            ) {
+                Box(
+                    contentAlignment = Alignment.Center,
+                    modifier = Modifier.height(36.dp)
+                ) {
+                    Icon(
+                        imageVector = Icons.AutoMirrored.Filled.KeyboardArrowRight,
+                        contentDescription = "Next pages",
+                        tint = if (canGoNext) palette.ink else palette.subtle.copy(alpha = 0.4f)
+                    )
+                }
+            }
+        }
+    }
+}
+

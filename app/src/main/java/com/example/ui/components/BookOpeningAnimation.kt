@@ -315,32 +315,41 @@ fun InteractiveBookPageTurner(
 
     // flipProgress: 0f = resting; -1f = forward turn complete; +1f = backward turn complete
     val flipProgress = remember { Animatable(0f) }
-    var lastObservedIndex by remember { mutableIntStateOf(currentPageIndex) }
+    var displayedPage by remember { mutableIntStateOf(currentPageIndex.coerceIn(0, (pageCount - 1).coerceAtLeast(0))) }
     var dragAccumulator by remember { mutableFloatStateOf(0f) }
 
-    LaunchedEffect(currentPageIndex) {
-        if (currentPageIndex != lastObservedIndex) {
-            val dir = if (currentPageIndex > lastObservedIndex) 1 else -1
-            lastObservedIndex = currentPageIndex
-            // Animate settling into the newly selected page with a crisp 3D book flip feel
-            flipProgress.snapTo(if (dir > 0) 0.62f else -0.62f)
-            flipProgress.animateTo(
-                targetValue = 0f,
-                animationSpec = spring(
-                    dampingRatio = 0.84f,
-                    stiffness = Spring.StiffnessMediumLow
+    LaunchedEffect(currentPageIndex, pageCount) {
+        val clampedTarget = currentPageIndex.coerceIn(0, (pageCount - 1).coerceAtLeast(0))
+        if (clampedTarget != displayedPage) {
+            val diff = clampedTarget - displayedPage
+            if (diff == 1) {
+                flipProgress.animateTo(
+                    targetValue = -1f,
+                    animationSpec = tween(durationMillis = 200, easing = FastOutSlowInEasing)
                 )
-            )
+                displayedPage = clampedTarget
+                flipProgress.snapTo(0f)
+            } else if (diff == -1) {
+                flipProgress.animateTo(
+                    targetValue = 1f,
+                    animationSpec = tween(durationMillis = 200, easing = FastOutSlowInEasing)
+                )
+                displayedPage = clampedTarget
+                flipProgress.snapTo(0f)
+            } else {
+                displayedPage = clampedTarget
+                flipProgress.snapTo(0f)
+            }
         }
     }
 
     val progress = flipProgress.value
     val isFlippingForward = progress < -0.005f
     val isFlippingBackward = progress > 0.005f
-    val readFraction = (currentPageIndex.toFloat() / (pageCount - 1).coerceAtLeast(1)).coerceIn(0f, 1f)
+    val readFraction = (displayedPage.toFloat() / (pageCount - 1).coerceAtLeast(1)).coerceIn(0f, 1f)
 
     val swipeModifier = if (allowHorizontalSwipe) {
-        Modifier.pointerInput(currentPageIndex, pageCount) {
+        Modifier.pointerInput(displayedPage, pageCount) {
             detectHorizontalDragGestures(
                 onDragStart = { dragAccumulator = 0f },
                 onHorizontalDrag = { change, dragAmount ->
@@ -349,8 +358,8 @@ fun InteractiveBookPageTurner(
                     dragAccumulator += dragAmount
                     val rawRatio = (dragAccumulator / (widthPx * 0.68f)).coerceIn(-1f, 1f)
                     val clamped = when {
-                        rawRatio < 0f && currentPageIndex >= pageCount - 1 -> rawRatio * 0.14f
-                        rawRatio > 0f && currentPageIndex <= 0 -> rawRatio * 0.14f
+                        rawRatio < 0f && displayedPage >= pageCount - 1 -> rawRatio * 0.14f
+                        rawRatio > 0f && displayedPage <= 0 -> rawRatio * 0.14f
                         else -> rawRatio
                     }
                     scope.launch { flipProgress.snapTo(clamped) }
@@ -359,31 +368,30 @@ fun InteractiveBookPageTurner(
                     val currentVal = flipProgress.value
                     scope.launch {
                         when {
-                            currentVal < -0.20f && currentPageIndex < pageCount - 1 -> {
+                            currentVal < -0.18f && displayedPage < pageCount - 1 -> {
+                                val nextIdx = displayedPage + 1
                                 flipProgress.animateTo(
                                     targetValue = -1f,
-                                    animationSpec = tween(230, easing = FastOutSlowInEasing)
+                                    animationSpec = tween(180, easing = FastOutSlowInEasing)
                                 )
-                                lastObservedIndex = currentPageIndex + 1
-                                onPageChanged(currentPageIndex + 1)
+                                displayedPage = nextIdx
                                 flipProgress.snapTo(0f)
+                                onPageChanged(nextIdx)
                             }
-                            currentVal > 0.20f && currentPageIndex > 0 -> {
+                            currentVal > 0.18f && displayedPage > 0 -> {
+                                val prevIdx = displayedPage - 1
                                 flipProgress.animateTo(
                                     targetValue = 1f,
-                                    animationSpec = tween(230, easing = FastOutSlowInEasing)
+                                    animationSpec = tween(180, easing = FastOutSlowInEasing)
                                 )
-                                lastObservedIndex = currentPageIndex - 1
-                                onPageChanged(currentPageIndex - 1)
+                                displayedPage = prevIdx
                                 flipProgress.snapTo(0f)
+                                onPageChanged(prevIdx)
                             }
                             else -> {
                                 flipProgress.animateTo(
                                     targetValue = 0f,
-                                    animationSpec = spring(
-                                        dampingRatio = 0.78f,
-                                        stiffness = Spring.StiffnessMedium
-                                    )
+                                    animationSpec = tween(150, easing = FastOutSlowInEasing)
                                 )
                             }
                         }
@@ -391,7 +399,7 @@ fun InteractiveBookPageTurner(
                 },
                 onDragCancel = {
                     scope.launch {
-                        flipProgress.animateTo(0f, spring(stiffness = Spring.StiffnessMedium))
+                        flipProgress.animateTo(0f, tween(150, easing = FastOutSlowInEasing))
                     }
                 }
             )
@@ -411,14 +419,16 @@ fun InteractiveBookPageTurner(
             .then(swipeModifier)
     ) {
         // Base layer: reveals next page when flipping forward, or stays on current page while previous folds back
-        if (isFlippingForward && currentPageIndex + 1 < pageCount) {
+        if (isFlippingForward && displayedPage + 1 < pageCount) {
             BookSheetFrame(
                 paperColor = paperColor,
                 spineBorderColor = spineBorderColor,
                 readFraction = readFraction,
                 modifier = Modifier.fillMaxSize()
             ) {
-                pageContent(currentPageIndex + 1)
+                androidx.compose.runtime.key(displayedPage + 1) {
+                    pageContent(displayedPage + 1)
+                }
                 val shadowAlpha = (1f - abs(progress)).coerceIn(0f, 1f) * 0.34f
                 Box(
                     modifier = Modifier
@@ -439,7 +449,9 @@ fun InteractiveBookPageTurner(
                 readFraction = readFraction,
                 modifier = Modifier.fillMaxSize()
             ) {
-                pageContent(currentPageIndex)
+                androidx.compose.runtime.key(displayedPage) {
+                    pageContent(displayedPage)
+                }
                 if (isFlippingBackward) {
                     val coverShadow = progress.coerceIn(0f, 1f) * 0.30f
                     Box(
@@ -474,11 +486,13 @@ fun InteractiveBookPageTurner(
                             cameraDistance = 16f * density
                         }
                 ) {
-                    pageContent(currentPageIndex)
+                    androidx.compose.runtime.key(displayedPage) {
+                        pageContent(displayedPage)
+                    }
                     PageBendLightingOverlay(bendAmount = bendAmount)
                 }
             }
-        } else if (isFlippingBackward && currentPageIndex - 1 >= 0) {
+        } else if (isFlippingBackward && displayedPage - 1 >= 0) {
             // Previous page unfolds smoothly from left spine (-102 deg -> 0 deg) onto the book!
             val unfoldAngle = (1f - progress.coerceIn(0f, 1f)) * -102f
             val bendAmount = (1f - progress).coerceIn(0f, 1f)
@@ -495,7 +509,9 @@ fun InteractiveBookPageTurner(
                             cameraDistance = 16f * density
                         }
                 ) {
-                    pageContent(currentPageIndex - 1)
+                    androidx.compose.runtime.key(displayedPage - 1) {
+                        pageContent(displayedPage - 1)
+                    }
                     PageBendLightingOverlay(bendAmount = bendAmount)
                 }
             }
@@ -506,7 +522,7 @@ fun InteractiveBookPageTurner(
 /**
  * Interactive 3D Two-Page Open Book Spread Turner.
  * Displays Left Page + Center Binding Gutter + Right Page inside an open hardcover frame,
- * and flips 2 pages at a time across the center spine with 3D rotationY.
+ * and flips 2 pages at a time across the center spine with 3D rotationY and zero jitter.
  */
 @Composable
 fun InteractiveOpenBookSpreadTurner(
@@ -523,32 +539,44 @@ fun InteractiveOpenBookSpreadTurner(
     val scope = rememberCoroutineScope()
     val density = LocalDensity.current.density
 
-    val normalizedLeft = (leftPageIndex / 2) * 2
-    val hasNextSpread = normalizedLeft + 2 < pageCount
-    val hasPrevSpread = normalizedLeft - 2 >= 0
-
+    val targetNormalizedLeft = ((leftPageIndex.coerceIn(0, (pageCount - 1).coerceAtLeast(0))) / 2) * 2
     val flipProgress = remember { Animatable(0f) }
-    var lastObservedLeft by remember { mutableIntStateOf(normalizedLeft) }
+    var displayedLeft by remember { mutableIntStateOf(targetNormalizedLeft) }
     var dragAccumulator by remember { mutableFloatStateOf(0f) }
 
-    LaunchedEffect(normalizedLeft) {
-        if (normalizedLeft != lastObservedLeft) {
-            val dir = if (normalizedLeft > lastObservedLeft) 1 else -1
-            lastObservedLeft = normalizedLeft
-            flipProgress.snapTo(if (dir > 0) 0.45f else -0.45f)
-            flipProgress.animateTo(
-                targetValue = 0f,
-                animationSpec = spring(dampingRatio = 0.85f, stiffness = Spring.StiffnessMediumLow)
-            )
+    LaunchedEffect(targetNormalizedLeft, pageCount) {
+        if (targetNormalizedLeft != displayedLeft) {
+            val diff = targetNormalizedLeft - displayedLeft
+            if (diff == 2) {
+                flipProgress.animateTo(
+                    targetValue = -1f,
+                    animationSpec = tween(durationMillis = 210, easing = FastOutSlowInEasing)
+                )
+                displayedLeft = targetNormalizedLeft
+                flipProgress.snapTo(0f)
+            } else if (diff == -2) {
+                flipProgress.animateTo(
+                    targetValue = 1f,
+                    animationSpec = tween(durationMillis = 210, easing = FastOutSlowInEasing)
+                )
+                displayedLeft = targetNormalizedLeft
+                flipProgress.snapTo(0f)
+            } else {
+                displayedLeft = targetNormalizedLeft
+                flipProgress.snapTo(0f)
+            }
         }
     }
+
+    val hasNextSpread = displayedLeft + 2 < pageCount
+    val hasPrevSpread = displayedLeft - 2 >= 0
 
     val progress = flipProgress.value
     val isFlippingForward = progress < -0.005f && hasNextSpread
     val isFlippingBackward = progress > 0.005f && hasPrevSpread
 
     val swipeModifier = if (allowHorizontalSwipe) {
-        Modifier.pointerInput(normalizedLeft, pageCount) {
+        Modifier.pointerInput(displayedLeft, pageCount) {
             detectHorizontalDragGestures(
                 onDragStart = { dragAccumulator = 0f },
                 onHorizontalDrag = { change, dragAmount ->
@@ -567,26 +595,30 @@ fun InteractiveOpenBookSpreadTurner(
                     val v = flipProgress.value
                     scope.launch {
                         when {
-                            v < -0.20f && hasNextSpread -> {
-                                flipProgress.animateTo(-1f, tween(280, easing = FastOutSlowInEasing))
-                                lastObservedLeft = normalizedLeft + 2
-                                onSpreadChanged(normalizedLeft + 2)
+                            v < -0.18f && hasNextSpread -> {
+                                val nextLeft = displayedLeft + 2
+                                flipProgress.animateTo(-1f, tween(190, easing = FastOutSlowInEasing))
+                                displayedLeft = nextLeft
                                 flipProgress.snapTo(0f)
+                                onSpreadChanged(nextLeft)
                             }
-                            v > 0.20f && hasPrevSpread -> {
-                                flipProgress.animateTo(1f, tween(280, easing = FastOutSlowInEasing))
-                                lastObservedLeft = normalizedLeft - 2
-                                onSpreadChanged(normalizedLeft - 2)
+                            v > 0.18f && hasPrevSpread -> {
+                                val prevLeft = displayedLeft - 2
+                                flipProgress.animateTo(1f, tween(190, easing = FastOutSlowInEasing))
+                                displayedLeft = prevLeft
                                 flipProgress.snapTo(0f)
+                                onSpreadChanged(prevLeft)
                             }
                             else -> {
-                                flipProgress.animateTo(0f, spring(dampingRatio = 0.8f))
+                                flipProgress.animateTo(0f, tween(150, easing = FastOutSlowInEasing))
                             }
                         }
                     }
                 },
                 onDragCancel = {
-                    scope.launch { flipProgress.animateTo(0f, spring()) }
+                    scope.launch {
+                        flipProgress.animateTo(0f, tween(150, easing = FastOutSlowInEasing))
+                    }
                 }
             )
         }
@@ -613,9 +645,11 @@ fun InteractiveOpenBookSpreadTurner(
         ) {
             // Left Half of Spread
             Box(modifier = Modifier.weight(1f).fillMaxHeight()) {
-                val baseLeftIdx = if (isFlippingBackward) normalizedLeft - 2 else normalizedLeft
+                val baseLeftIdx = if (isFlippingBackward) displayedLeft - 2 else displayedLeft
                 if (baseLeftIdx in 0 until pageCount) {
-                    pageContent(baseLeftIdx, false)
+                    androidx.compose.runtime.key(baseLeftIdx) {
+                        pageContent(baseLeftIdx, false)
+                    }
                 }
                 // Left outer fore-edge lines
                 ForeEdgePaperStack(
@@ -650,9 +684,11 @@ fun InteractiveOpenBookSpreadTurner(
 
             // Right Half of Spread
             Box(modifier = Modifier.weight(1f).fillMaxHeight()) {
-                val baseRightIdx = if (isFlippingForward) normalizedLeft + 3 else normalizedLeft + 1
+                val baseRightIdx = if (isFlippingForward) displayedLeft + 3 else displayedLeft + 1
                 if (baseRightIdx in 0 until pageCount) {
-                    pageContent(baseRightIdx, true)
+                    androidx.compose.runtime.key(baseRightIdx) {
+                        pageContent(baseRightIdx, true)
+                    }
                 } else {
                     // Clean inner endpaper when book ends on an odd page
                     Box(modifier = Modifier.fillMaxSize().background(paperColor.copy(alpha = 0.92f)))
@@ -700,8 +736,10 @@ fun InteractiveOpenBookSpreadTurner(
                             }
                             .background(paperColor)
                     ) {
-                        if (normalizedLeft + 1 < pageCount) {
-                            pageContent(normalizedLeft + 1, true)
+                        if (displayedLeft + 1 < pageCount) {
+                            androidx.compose.runtime.key(displayedLeft + 1) {
+                                pageContent(displayedLeft + 1, true)
+                            }
                         }
                         PageBendLightingOverlay(bendAmount = frac * 2f)
                     }
@@ -721,8 +759,10 @@ fun InteractiveOpenBookSpreadTurner(
                             }
                             .background(paperColor)
                     ) {
-                        if (normalizedLeft + 2 < pageCount) {
-                            pageContent(normalizedLeft + 2, false)
+                        if (displayedLeft + 2 < pageCount) {
+                            androidx.compose.runtime.key(displayedLeft + 2) {
+                                pageContent(displayedLeft + 2, false)
+                            }
                         }
                         PageBendLightingOverlay(bendAmount = (1f - frac) * 2f)
                     }
@@ -746,8 +786,10 @@ fun InteractiveOpenBookSpreadTurner(
                             }
                             .background(paperColor)
                     ) {
-                        if (normalizedLeft in 0 until pageCount) {
-                            pageContent(normalizedLeft, false)
+                        if (displayedLeft in 0 until pageCount) {
+                            androidx.compose.runtime.key(displayedLeft) {
+                                pageContent(displayedLeft, false)
+                            }
                         }
                         PageBendLightingOverlay(bendAmount = frac * 2f)
                     }
@@ -769,9 +811,11 @@ fun InteractiveOpenBookSpreadTurner(
                             }
                             .background(paperColor)
                     ) {
-                        val prevRight = normalizedLeft - 1
+                        val prevRight = displayedLeft - 1
                         if (prevRight in 0 until pageCount) {
-                            pageContent(prevRight, true)
+                            androidx.compose.runtime.key(prevRight) {
+                                pageContent(prevRight, true)
+                            }
                         }
                         PageBendLightingOverlay(bendAmount = (1f - frac) * 2f)
                     }
