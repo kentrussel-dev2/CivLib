@@ -1,0 +1,430 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
+  <title>CivLib — Civil Library</title>
+  <meta name="description" content="Civil & Engineering Academic Library, Textbook Reader, Multi-Select Study Survey & AI Study Assistant" />
+  <meta name="theme-color" content="#1C1512" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+  <meta name="apple-mobile-web-app-title" content="CivLib" />
+  <link rel="manifest" href="./manifest.json" />
+  <link rel="apple-touch-icon" href="./icons/apple-touch-icon.jpg" />
+  <link rel="icon" type="image/jpeg" href="./icons/icon-512.jpg" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=JetBrains+Mono:wght@500;700&family=Lora:ital,wght@0,400;0,600;1,400&family=Playfair+Display:wght@600;700&display=swap" rel="stylesheet" />
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js" defer></script>
+  <style>
+    :root {
+      --espresso-bg: #1C1512;
+      --espresso-card: #271E1A;
+      --espresso-ink: #1C1512;
+      --espresso-ink-muted: #4A3D36;
+      --sage-olive: #9C9A76;
+      --sand-cream: #EBE0CC;
+      --sand-cream-light: #F6F1E6;
+      --sand-cream-muted: #C2B6A3;
+      --brass: #C89B3C;
+      --safe-top: env(safe-area-inset-top, 0px);
+      --safe-bottom: env(safe-area-inset-bottom, 0px);
+    }
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+      -webkit-tap-highlight-color: transparent;
+    }
+    html, body {
+      width: 100%;
+      height: 100%;
+      background: var(--espresso-bg);
+      color: var(--sand-cream-light);
+      font-family: 'DM Sans', -apple-system, BlinkMacSystemFont, sans-serif;
+      overflow: hidden;
+      user-select: none;
+      -webkit-user-select: none;
+    }
+    #app-root {
+      position: relative;
+      width: 100%;
+      height: 100%;
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+    }
+    .screen-scroll {
+      flex: 1;
+      overflow-y: auto;
+      -webkit-overflow-scrolling: touch;
+      padding-bottom: calc(96px + var(--safe-bottom));
+    }
+    .serif-title {
+      font-family: 'Playfair Display', Georgia, serif;
+    }
+    .lora-text {
+      font-family: 'Lora', Georgia, serif;
+    }
+    .mono-text {
+      font-family: 'JetBrains Mono', monospace;
+    }
+
+    /* Animated Launch Intro Overlay (Nothing -> CivLib -> Civil Library) */
+    #intro-splash {
+      position: fixed;
+      inset: 0;
+      z-index: 9999;
+      background: var(--espresso-bg);
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      transition: opacity 0.38s ease;
+    }
+    #intro-splash.fade-out {
+      opacity: 0;
+      pointer-events: none;
+    }
+    .intro-icon-wrap {
+      width: 112px;
+      height: 112px;
+      border-radius: 50%;
+      border: 2.5px solid rgba(235, 224, 204, 0.85);
+      overflow: hidden;
+      box-shadow: 0 12px 32px rgba(0,0,0,0.55);
+      transform: scale(0.62);
+      opacity: 0;
+      transition: transform 0.5s cubic-bezier(0.2, 0.8, 0.2, 1), opacity 0.42s ease;
+    }
+    .intro-icon-wrap.entered {
+      transform: scale(1);
+      opacity: 1;
+    }
+    .intro-icon-wrap img {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+    }
+    .intro-brand-title {
+      margin-top: 24px;
+      min-height: 48px;
+      font-family: 'Playfair Display', Georgia, serif;
+      font-weight: 700;
+      font-size: 38px;
+      color: var(--sand-cream-light);
+      text-align: center;
+      transition: opacity 0.28s ease, transform 0.28s ease;
+    }
+    .intro-sub {
+      margin-top: 8px;
+      font-size: 11.5px;
+      font-weight: 600;
+      letter-spacing: 2.2px;
+      color: var(--sage-olive);
+      opacity: 0;
+      transition: opacity 0.4s ease;
+    }
+    .intro-sub.visible {
+      opacity: 1;
+    }
+
+    /* Flush Pills & Buttons (Border and fill 100% matched) */
+    .pill-btn {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 6px;
+      border-radius: 999px;
+      padding: 7px 14px;
+      font-size: 12px;
+      font-weight: 700;
+      border: 1px solid transparent;
+      background-clip: padding-box;
+      cursor: pointer;
+      transition: transform 0.12s ease, opacity 0.15s ease;
+      white-space: nowrap;
+    }
+    .pill-btn:active {
+      transform: scale(0.97);
+    }
+    .pill-cream {
+      background: var(--sand-cream);
+      color: var(--espresso-ink);
+      border-color: var(--sand-cream);
+    }
+    .pill-espresso {
+      background: var(--espresso-ink);
+      color: var(--sand-cream);
+      border-color: rgba(235, 224, 204, 0.28);
+    }
+    .pill-sage {
+      background: rgba(156, 154, 118, 0.30);
+      color: var(--sand-cream-light);
+      border-color: rgba(235, 224, 204, 0.28);
+    }
+    .pill-card {
+      background: var(--espresso-card);
+      color: var(--sand-cream-light);
+      border-color: rgba(235, 224, 204, 0.22);
+    }
+
+    /* Custom Editorial Typographic Book Cover */
+    .book-cover {
+      position: relative;
+      width: 100%;
+      aspect-ratio: 0.72;
+      border-radius: 2px 6px 6px 2px;
+      overflow: hidden;
+      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.35);
+      border: 0.5px solid rgba(0, 0, 0, 0.2);
+      cursor: pointer;
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+      padding: 11px 10px 11px 14px;
+      color: #F6F1E6;
+      background-clip: padding-box;
+    }
+    .book-cover.mosaic-tile {
+      aspect-ratio: 0.76;
+      border-radius: 0;
+      box-shadow: none;
+    }
+    .book-hinge {
+      position: absolute;
+      left: 0;
+      top: 0;
+      bottom: 0;
+      width: 9px;
+      background: linear-gradient(90deg, rgba(0,0,0,0.34) 0%, rgba(255,255,255,0.10) 42%, rgba(0,0,0,0.22) 68%, transparent 100%);
+      pointer-events: none;
+      z-index: 2;
+    }
+    .book-fore-edge {
+      position: absolute;
+      right: 0;
+      top: 0;
+      bottom: 0;
+      width: 2.5px;
+      background: rgba(242, 236, 224, 0.72);
+      pointer-events: none;
+      z-index: 2;
+    }
+    .book-offline-pip {
+      position: absolute;
+      top: 7px;
+      right: 7px;
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      background: #2D8A61;
+      border: 1px solid #FAF7F0;
+      z-index: 3;
+    }
+    .book-real-img {
+      position: absolute;
+      inset: 0;
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+      z-index: 1;
+    }
+    .cover-top-meta {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 8.5px;
+      font-weight: 700;
+      color: #E5C168;
+      letter-spacing: 0.5px;
+      line-height: 1.25;
+    }
+    .cover-rule {
+      height: 1px;
+      background: rgba(246, 241, 230, 0.24);
+      margin: 5px 0;
+    }
+    .cover-title {
+      font-family: 'Lora', Georgia, serif;
+      font-weight: 600;
+      font-size: 12px;
+      line-height: 1.22;
+      color: #F6F1E6;
+      display: -webkit-box;
+      -webkit-line-clamp: 4;
+      -webkit-box-orient: vertical;
+      overflow: hidden;
+    }
+    .cover-author {
+      font-size: 9.5px;
+      color: rgba(246, 241, 230, 0.74);
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    /* Bottom Beveled Sand-Cream Navigation Bar */
+    .bottom-nav {
+      position: fixed;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      z-index: 100;
+      background: var(--sand-cream);
+      color: var(--espresso-ink);
+      border-radius: 24px 24px 0 0;
+      box-shadow: 0 -6px 24px rgba(0, 0, 0, 0.42);
+      padding: 8px 12px calc(10px + var(--safe-bottom));
+      display: flex;
+      justify-content: space-around;
+      align-items: center;
+    }
+    .nav-item {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 3px;
+      padding: 6px 4px;
+      border-radius: 14px;
+      color: rgba(28, 21, 18, 0.65);
+      font-size: 11px;
+      font-weight: 600;
+      cursor: pointer;
+    }
+    .nav-item.active {
+      color: var(--espresso-ink);
+      font-weight: 700;
+      background: rgba(156, 154, 118, 0.36);
+    }
+    .nav-item svg {
+      width: 21px;
+      height: 21px;
+    }
+
+    /* Modals & Full-Screen Windows */
+    .modal-backdrop {
+      position: fixed;
+      inset: 0;
+      z-index: 400;
+      background: rgba(12, 9, 7, 0.76);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 16px;
+    }
+    .modal-card {
+      width: 100%;
+      max-width: 480px;
+      max-height: 88vh;
+      overflow-y: auto;
+      background: var(--espresso-card);
+      border: 1px solid rgba(235, 224, 204, 0.18);
+      border-radius: 22px;
+      padding: 20px;
+      color: var(--sand-cream-light);
+    }
+    .fullscreen-overlay {
+      position: fixed;
+      inset: 0;
+      z-index: 500;
+      background: var(--espresso-bg);
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+    }
+
+    /* Horizontal Chip Rows */
+    .chip-row {
+      display: flex;
+      gap: 8px;
+      overflow-x: auto;
+      padding: 6px 16px;
+      scrollbar-width: none;
+    }
+    .chip-row::-webkit-scrollbar {
+      display: none;
+    }
+
+    /* IG 3-Column Mosaic */
+    .ig-mosaic {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 2px;
+      background: var(--espresso-bg);
+    }
+
+    /* Reader Themes */
+    .reader-theme-PARCHMENT {
+      --reader-desk: #231D17;
+      --reader-bg: #F4ECD8;
+      --reader-card: #EFE5CE;
+      --reader-ink: #251C15;
+      --reader-subtle: #695A4B;
+      --reader-border: #D5C8AE;
+    }
+    .reader-theme-CRISP {
+      --reader-desk: #1F2733;
+      --reader-bg: #FAFBFD;
+      --reader-card: #F0F3F8;
+      --reader-ink: #141B24;
+      --reader-subtle: #576375;
+      --reader-border: #DCE1EA;
+    }
+    .reader-theme-BLUEPRINT_DARK {
+      --reader-desk: #070F19;
+      --reader-bg: #0D1B2A;
+      --reader-card: #14273D;
+      --reader-ink: #E5EFFB;
+      --reader-subtle: #8FA9C7;
+      --reader-border: #284261;
+    }
+
+    /* Toast Snackbar */
+    #toast-bar {
+      position: fixed;
+      left: 16px;
+      right: 16px;
+      bottom: calc(84px + var(--safe-bottom));
+      z-index: 950;
+      background: #2D231E;
+      color: var(--sand-cream-light);
+      border: 1px solid rgba(235, 224, 204, 0.26);
+      padding: 12px 16px;
+      border-radius: 14px;
+      font-size: 13px;
+      font-weight: 600;
+      box-shadow: 0 8px 24px rgba(0,0,0,0.45);
+      transform: translateY(20px);
+      opacity: 0;
+      pointer-events: none;
+      transition: opacity 0.2s ease, transform 0.2s ease;
+    }
+    #toast-bar.visible {
+      transform: translateY(0);
+      opacity: 1;
+    }
+  </style>
+</head>
+<body>
+  <!-- Animated Launch Intro: Nothing -> CivLib -> Civil Library -->
+  <div id="intro-splash" onclick="window.skipIntro && window.skipIntro()">
+    <div id="intro-icon" class="intro-icon-wrap">
+      <img src="./icons/icon-512.jpg" alt="CivLib Icon" />
+    </div>
+    <div id="intro-title" class="intro-brand-title"></div>
+    <div id="intro-subtitle" class="intro-sub">ENGINEERING &amp; ACADEMIC ARCHIVE</div>
+  </div>
+
+  <!-- Main App Container -->
+  <div id="app-root"></div>
+
+  <!-- Hidden Local PDF Picker for iPhone Files / Android -->
+  <input type="file" id="pdf-file-picker" accept="application/pdf" style="display:none" />
+
+  <!-- Toast Notification -->
+  <div id="toast-bar"></div>
+
+  <script src="./app.js"></script>
+</body>
+</html>
