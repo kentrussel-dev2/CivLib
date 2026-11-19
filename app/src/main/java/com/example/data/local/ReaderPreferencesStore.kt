@@ -20,8 +20,11 @@ data class ReaderPreferences(
     val paperTheme: PaperTheme = PaperTheme.PARCHMENT,
     val sortMode: LibrarySortMode = LibrarySortMode.BY_SUBJECT,
     val viewMode: LibraryViewMode = LibraryViewMode.BOOKSHELF,
-    val readingLayout: BookReadingLayout = BookReadingLayout.TWO_PAGE_SPREAD,
-    val cropPdfMargins: Boolean = false
+    val readingLayout: BookReadingLayout = BookReadingLayout.SINGLE_PAGE,
+    val cropPdfMargins: Boolean = true,
+    val autoSyncOnLaunch: Boolean = true,
+    val resetToPortraitTrimmedOnOpen: Boolean = true,
+    val customGeminiApiKey: String = ""
 )
 
 class ReaderPreferencesStore(private val context: Context) {
@@ -31,7 +34,10 @@ class ReaderPreferencesStore(private val context: Context) {
         val SORT_MODE = stringPreferencesKey("sort_mode")
         val VIEW_MODE = stringPreferencesKey("view_mode")
         val READING_LAYOUT = stringPreferencesKey("reading_layout")
-        val CROP_PDF_MARGINS = booleanPreferencesKey("crop_pdf_margins")
+        val CROP_PDF_MARGINS = booleanPreferencesKey("crop_pdf_margins_v2")
+        val AUTO_SYNC_ON_LAUNCH = booleanPreferencesKey("auto_sync_on_launch")
+        val RESET_PORTRAIT_TRIMMED_ON_OPEN = booleanPreferencesKey("reset_portrait_trimmed_on_open")
+        val CUSTOM_GEMINI_API_KEY = stringPreferencesKey("custom_gemini_api_key")
     }
 
     val preferencesFlow: Flow<ReaderPreferences> = context.readerPrefsDataStore.data.map { prefs ->
@@ -48,8 +54,11 @@ class ReaderPreferencesStore(private val context: Context) {
             } ?: LibraryViewMode.BOOKSHELF,
             readingLayout = prefs[Keys.READING_LAYOUT]?.let { name ->
                 BookReadingLayout.entries.firstOrNull { it.name == name }
-            } ?: BookReadingLayout.TWO_PAGE_SPREAD,
-            cropPdfMargins = prefs[Keys.CROP_PDF_MARGINS] ?: false
+            } ?: BookReadingLayout.SINGLE_PAGE,
+            cropPdfMargins = prefs[Keys.CROP_PDF_MARGINS] ?: true,
+            autoSyncOnLaunch = prefs[Keys.AUTO_SYNC_ON_LAUNCH] ?: true,
+            resetToPortraitTrimmedOnOpen = prefs[Keys.RESET_PORTRAIT_TRIMMED_ON_OPEN] ?: true,
+            customGeminiApiKey = prefs[Keys.CUSTOM_GEMINI_API_KEY] ?: ""
         )
     }
 
@@ -86,6 +95,34 @@ class ReaderPreferencesStore(private val context: Context) {
     suspend fun updateCropPdfMargins(crop: Boolean) {
         context.readerPrefsDataStore.edit { prefs ->
             prefs[Keys.CROP_PDF_MARGINS] = crop
+        }
+    }
+
+    suspend fun updateAutoSyncOnLaunch(enabled: Boolean) {
+        context.readerPrefsDataStore.edit { prefs ->
+            prefs[Keys.AUTO_SYNC_ON_LAUNCH] = enabled
+        }
+    }
+
+    suspend fun updateResetToPortraitTrimmedOnOpen(enabled: Boolean) {
+        context.readerPrefsDataStore.edit { prefs ->
+            prefs[Keys.RESET_PORTRAIT_TRIMMED_ON_OPEN] = enabled
+        }
+    }
+
+    suspend fun updateCustomGeminiApiKey(apiKey: String) {
+        context.readerPrefsDataStore.edit { prefs ->
+            prefs[Keys.CUSTOM_GEMINI_API_KEY] = apiKey.trim()
+        }
+    }
+
+    suspend fun resetBookOpenDefaults() {
+        context.readerPrefsDataStore.edit { prefs ->
+            val shouldReset = prefs[Keys.RESET_PORTRAIT_TRIMMED_ON_OPEN] ?: true
+            if (shouldReset) {
+                prefs[Keys.READING_LAYOUT] = BookReadingLayout.SINGLE_PAGE.name
+                prefs[Keys.CROP_PDF_MARGINS] = true
+            }
         }
     }
 }

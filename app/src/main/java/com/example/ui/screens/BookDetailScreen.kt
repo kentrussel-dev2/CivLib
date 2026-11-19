@@ -63,6 +63,13 @@ import com.example.data.model.formatFileSize
 import com.example.ui.components.HardcoverBookThumbnail
 import com.example.ui.theme.NewsreaderFontFamily
 
+import androidx.compose.material.icons.filled.AutoAwesome
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.runtime.setValue
+import com.example.ui.components.AiStudyAssistantFullScreenDialog
+
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun BookDetailScreen(
@@ -72,6 +79,7 @@ fun BookDetailScreen(
     downloadProgress: DownloadProgress?,
     isBookmarked: Boolean = false,
     isCompleted: Boolean = false,
+    customGeminiApiKey: String = "",
     onBack: () -> Unit,
     onOpenReader: (pageNumber: Int) -> Unit,
     onDownloadBook: (BookEntity) -> Unit,
@@ -79,6 +87,7 @@ fun BookDetailScreen(
     onRemoveOffline: (BookEntity) -> Unit,
     onToggleBookmark: (BookEntity) -> Unit = {},
     onToggleCompleted: (BookEntity) -> Unit = {},
+    onSaveReviewNote: (pageNumber: Int, chapterTitle: String, noteText: String) -> Unit = { _, _, _ -> },
     modifier: Modifier = Modifier
 ) {
     if (book == null) {
@@ -92,6 +101,7 @@ fun BookDetailScreen(
         return
     }
 
+    var showAiAssistant by rememberSaveable { mutableStateOf(false) }
     val subject = remember(book.subjectKey) { CivilSubject.fromKey(book.subjectKey) }
     val sourceLabel = remember(book.sourceType) {
         BookSourceType.entries.firstOrNull { it.name == book.sourceType }?.displayLabel
@@ -309,6 +319,22 @@ fun BookDetailScreen(
                         }
 
                         OutlinedButton(
+                            onClick = { showAiAssistant = true },
+                            modifier = Modifier
+                                .height(50.dp)
+                                .testTag("detail_ask_ai_button"),
+                            shape = RoundedCornerShape(6.dp)
+                        ) {
+                            Icon(
+                                imageVector = Icons.Filled.AutoAwesome,
+                                contentDescription = "Ask AI about this book",
+                                modifier = Modifier.size(16.dp)
+                            )
+                            Spacer(modifier = Modifier.width(6.dp))
+                            Text("Ask AI", style = MaterialTheme.typography.labelLarge)
+                        }
+
+                        OutlinedButton(
                             onClick = { onRemoveOffline(book) },
                             modifier = Modifier.height(50.dp),
                             shape = RoundedCornerShape(6.dp)
@@ -321,27 +347,48 @@ fun BookDetailScreen(
                         }
                     }
                 } else {
-                    Button(
-                        onClick = { onDownloadBook(book) },
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .height(50.dp)
-                            .testTag("download_full_pdf_button"),
-                        shape = RoundedCornerShape(6.dp),
-                        colors = ButtonDefaults.buttonColors(
-                            containerColor = MaterialTheme.colorScheme.primary
-                        )
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(10.dp)
                     ) {
-                        Icon(
-                            imageVector = Icons.Filled.CloudDownload,
-                            contentDescription = null,
-                            modifier = Modifier.size(18.dp)
-                        )
-                        Spacer(modifier = Modifier.width(8.dp))
-                        Text(
-                            text = "Download & Read Full PDF Book",
-                            style = MaterialTheme.typography.labelLarge
-                        )
+                        Button(
+                            onClick = { onDownloadBook(book) },
+                            modifier = Modifier
+                                .weight(1f)
+                                .height(50.dp)
+                                .testTag("download_full_pdf_button"),
+                            shape = RoundedCornerShape(6.dp),
+                            colors = ButtonDefaults.buttonColors(
+                                containerColor = MaterialTheme.colorScheme.primary
+                            )
+                        ) {
+                            Icon(
+                                imageVector = Icons.Filled.CloudDownload,
+                                contentDescription = null,
+                                modifier = Modifier.size(18.dp)
+                            )
+                            Spacer(modifier = Modifier.width(8.dp))
+                            Text(
+                                text = "Download & Read PDF",
+                                style = MaterialTheme.typography.labelLarge
+                            )
+                        }
+
+                        OutlinedButton(
+                            onClick = { showAiAssistant = true },
+                            modifier = Modifier
+                                .height(50.dp)
+                                .testTag("detail_ask_ai_button"),
+                            shape = RoundedCornerShape(6.dp)
+                        ) {
+                            Icon(
+                                imageVector = Icons.Filled.AutoAwesome,
+                                contentDescription = "Ask AI about this book",
+                                modifier = Modifier.size(16.dp)
+                            )
+                            Spacer(modifier = Modifier.width(6.dp))
+                            Text("Ask AI", style = MaterialTheme.typography.labelLarge)
+                        }
                     }
                 }
             }
@@ -480,11 +527,31 @@ fun BookDetailScreen(
                                 modifier = Modifier.weight(1f)
                             )
                         }
-                        HorizontalDivider(thickness = 0.75.dp, color = MaterialTheme.colorScheme.outlineVariant)
                     }
                 }
             }
         }
+    }
+
+    if (showAiAssistant) {
+        AiStudyAssistantFullScreenDialog(
+            book = book,
+            pages = pages,
+            bookmarks = bookmarks,
+            currentPageNumber = book.currentPage.coerceAtLeast(1),
+            customGeminiApiKey = customGeminiApiKey,
+            onDismiss = { showAiAssistant = false },
+            onOpenPageInBook = { targetPageNum ->
+                if (book.isOfflineAvailable) {
+                    onOpenReader(targetPageNum)
+                } else {
+                    onDownloadBook(book.copy(currentPage = targetPageNum))
+                }
+            },
+            onSaveAiNoteForPage = { targetPageNum, noteText ->
+                onSaveReviewNote(targetPageNum, "Page $targetPageNum · ${book.title}", noteText)
+            }
+        )
     }
 }
 

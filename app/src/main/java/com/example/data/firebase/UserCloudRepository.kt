@@ -61,7 +61,7 @@ class UserCloudRepository(
         val email = sp.getString("email", null)
         val mantra = sp.getString("study_mantra", "BS Civil Engineering · Chronological Track")
             ?: "BS Civil Engineering · Chronological Track"
-        val year = sp.getLong("curriculum_year", 1L).coerceIn(1L, 4L)
+        val year = sp.getLong("curriculum_year", 1L).coerceIn(1L, 5L)
         val subjectKey = sp.getString("primary_subject_key", "MECHANICS") ?: "MECHANICS"
         val subjectKeysRaw = sp.getString("selected_subject_keys", subjectKey).orEmpty()
         val subjectKeys = subjectKeysRaw.split("|").map { it.trim() }.filter { it.isNotBlank() }

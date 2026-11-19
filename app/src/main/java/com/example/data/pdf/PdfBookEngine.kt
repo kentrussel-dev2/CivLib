@@ -166,7 +166,7 @@ class PdfBookSession(private val pdfFile: File) : AutoCloseable {
     private var isClosed = false
 
     private val pageCache = object : LruCache<String, Bitmap>(16) {}
-    private val thumbnailCache = object : LruCache<Int, Bitmap>(32) {}
+    private val thumbnailCache = object : LruCache<Int, Bitmap>(64) {}
 
     @Volatile
     var pageCount: Int = 0
@@ -187,6 +187,13 @@ class PdfBookSession(private val pdfFile: File) : AutoCloseable {
         val cacheKey = "${pageIndex}_${quantizedWidth}_$cropMargins"
         return synchronized(pageCache) {
             pageCache.get(cacheKey)?.takeIf { !it.isRecycled }
+        }
+    }
+
+    fun getCachedThumbnail(pageIndex: Int): Bitmap? {
+        if (isClosed || pageIndex < 0) return null
+        return synchronized(thumbnailCache) {
+            thumbnailCache.get(pageIndex)?.takeIf { !it.isRecycled }
         }
     }
 
@@ -283,10 +290,11 @@ class PdfBookSession(private val pdfFile: File) : AutoCloseable {
 
             runCatching {
                 activeRenderer.openPage(pageIndex).use { page ->
-                    val width = targetWidthPx.coerceIn(120, 320)
+                    val width = targetWidthPx.coerceIn(140, 340)
                     val ratio = page.height.toFloat() / page.width.coerceAtLeast(1).toFloat()
-                    val height = (width * ratio).toInt().coerceIn(140, 480)
-                    val bitmap = Bitmap.createBitmap(width, height, Bitmap.Config.RGB_565)
+                    val height = (width * ratio).toInt().coerceIn(160, 500)
+                    // IMPORTANT: Android PdfRenderer strictly requires ARGB_8888
+                    val bitmap = Bitmap.createBitmap(width, height, Bitmap.Config.ARGB_8888)
                     val canvas = Canvas(bitmap)
                     canvas.drawColor(Color.WHITE)
                     page.render(bitmap, null, null, PdfRenderer.Page.RENDER_MODE_FOR_DISPLAY)

@@ -27,9 +27,11 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Bookmark
 import androidx.compose.material.icons.filled.DeleteOutline
 import androidx.compose.material.icons.filled.GridOn
+import androidx.compose.material.icons.outlined.AutoAwesome
 import androidx.compose.material.icons.outlined.BookmarkBorder
 import androidx.compose.material.icons.outlined.Edit
 import androidx.compose.material.icons.outlined.GridOn
+import androidx.compose.material.icons.outlined.Settings
 import androidx.compose.material.icons.outlined.SwitchAccount
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
@@ -40,9 +42,19 @@ import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.OutlinedTextFieldDefaults
+import androidx.compose.material3.Slider
+import androidx.compose.material3.SliderDefaults
 import androidx.compose.material3.Surface
+import androidx.compose.material3.Switch
+import androidx.compose.material3.SwitchDefaults
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
+import androidx.compose.ui.window.Dialog
+import androidx.compose.ui.window.DialogProperties
+import com.example.data.local.ReaderPreferences
+import com.example.data.model.PaperTheme
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
@@ -105,12 +117,19 @@ fun ProfileVaultScreen(
     personalSavedBooks: List<BookEntity>,
     completedCount: Int,
     cloudNotes: List<CloudStudyNote>,
+    readerPreferences: ReaderPreferences = ReaderPreferences(),
     onImportPdfClick: () -> Unit,
     onRefreshCatalog: () -> Unit,
     onUpdateProfilePreferences: (studyMantra: String, curriculumYear: Int) -> Unit,
     onSaveProfileSurvey: (ProfileSurveyResult) -> Unit = { res ->
         onUpdateProfilePreferences(res.studyMantra, res.curriculumYear)
     },
+    onSelectPaperTheme: (PaperTheme) -> Unit = {},
+    onSelectFontSize: (Float) -> Unit = {},
+    onToggleCropPdfMargins: (Boolean) -> Unit = {},
+    onToggleAutoSyncOnLaunch: (Boolean) -> Unit = {},
+    onToggleResetToPortraitTrimmed: (Boolean) -> Unit = {},
+    onSaveCustomGeminiApiKey: (String) -> Unit = {},
     onSignOutClick: () -> Unit = {},
     onSwitchGoogleAccount: () -> Unit = {},
     onBookClick: (String) -> Unit,
@@ -122,6 +141,7 @@ fun ProfileVaultScreen(
     var selectedTab by rememberSaveable { mutableIntStateOf(1) }
     var showEditProfileDialog by remember { mutableStateOf(false) }
     var showFullSurveyModal by rememberSaveable { mutableStateOf(false) }
+    var showSettingsModal by rememberSaveable { mutableStateOf(false) }
     var activeRecommendSubjectFilter by rememberSaveable { mutableStateOf<String?>(null) }
 
     val displayName = userProfile?.displayName?.takeIf { it.isNotBlank() }
@@ -129,7 +149,8 @@ fun ProfileVaultScreen(
         ?: "Civil Engineer"
     val photoUrl = userProfile?.photoUrl?.takeIf { it.isNotBlank() }
         ?: currentUser?.photoUrl?.toString()
-    val curriculumYear = (userProfile?.curriculumYear ?: 1L).toInt().coerceIn(1, 4)
+    val curriculumYear = (userProfile?.curriculumYear ?: 1L).toInt().coerceIn(1, 5)
+    val yearLabel = if (curriculumYear == 5) "Masters / Grad" else "Year $curriculumYear"
 
     val chosenSubjectKeys = remember(userProfile, curriculumYear) {
         userProfile?.effectiveSubjectKeys?.takeIf { it.isNotEmpty() }
@@ -243,17 +264,48 @@ fun ProfileVaultScreen(
                                 fontSize = 24.sp,
                                 color = SandCreamLight
                             )
-                            Text(
-                                text = "Survey",
-                                fontFamily = DmSansFontFamily,
-                                fontWeight = FontWeight.SemiBold,
-                                fontSize = 14.sp,
-                                color = SandCream,
-                                modifier = Modifier
-                                    .clickable { showFullSurveyModal = true }
-                                    .padding(vertical = 6.dp, horizontal = 4.dp)
-                                    .testTag("profile_survey_top_action")
-                            )
+                            Row(
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.spacedBy(8.dp)
+                            ) {
+                                Text(
+                                    text = "Survey",
+                                    fontFamily = DmSansFontFamily,
+                                    fontWeight = FontWeight.SemiBold,
+                                    fontSize = 13.5.sp,
+                                    color = SandCream,
+                                    modifier = Modifier
+                                        .clickable { showFullSurveyModal = true }
+                                        .padding(vertical = 6.dp, horizontal = 4.dp)
+                                        .testTag("profile_survey_top_action")
+                                )
+                                Surface(
+                                    onClick = { showSettingsModal = true },
+                                    shape = RoundedCornerShape(999.dp),
+                                    color = EspressoCard,
+                                    modifier = Modifier.testTag("profile_settings_top_action")
+                                ) {
+                                    Row(
+                                        modifier = Modifier.padding(horizontal = 10.dp, vertical = 5.dp),
+                                        verticalAlignment = Alignment.CenterVertically
+                                    ) {
+                                        Icon(
+                                            imageVector = Icons.Outlined.Settings,
+                                            contentDescription = "App & Reader Settings",
+                                            tint = SandCream,
+                                            modifier = Modifier.size(14.dp)
+                                        )
+                                        Spacer(modifier = Modifier.width(4.dp))
+                                        Text(
+                                            text = "Settings",
+                                            fontFamily = DmSansFontFamily,
+                                            fontWeight = FontWeight.Bold,
+                                            fontSize = 12.sp,
+                                            color = SandCreamLight
+                                        )
+                                    }
+                                }
+                            }
                         }
                     }
 
@@ -292,7 +344,7 @@ fun ProfileVaultScreen(
                                 .testTag("edit_profile_mantra_button")
                         ) {
                             Text(
-                                text = "Year $curriculumYear · $studyMantra",
+                                text = "$yearLabel · $studyMantra",
                                 fontFamily = LoraFontFamily,
                                 fontSize = 13.5.sp,
                                 color = EspressoInkMuted,
@@ -310,7 +362,7 @@ fun ProfileVaultScreen(
 
                         Spacer(modifier = Modifier.height(8.dp))
 
-                        // Study Survey Customization Pill + Chosen Goals Summary Pill
+                        // Study Survey Customization Pill + Settings Pill + Chosen Goals Summary Pill
                         Row(
                             horizontalArrangement = Arrangement.spacedBy(8.dp),
                             verticalAlignment = Alignment.CenterVertically
@@ -322,7 +374,7 @@ fun ProfileVaultScreen(
                                 modifier = Modifier.testTag("profile_open_survey_button")
                             ) {
                                 Row(
-                                    modifier = Modifier.padding(horizontal = 13.dp, vertical = 6.dp),
+                                    modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp),
                                     verticalAlignment = Alignment.CenterVertically
                                 ) {
                                     Icon(
@@ -338,11 +390,38 @@ fun ProfileVaultScreen(
                                         "${chosenSubjects.size} Focus Subjects"
                                     }
                                     Text(
-                                        text = "Edit Survey · $focusLabel",
+                                        text = "Survey · $focusLabel",
                                         fontFamily = DmSansFontFamily,
                                         fontWeight = FontWeight.Bold,
                                         fontSize = 11.5.sp,
                                         color = EspressoInk
+                                    )
+                                }
+                            }
+
+                            Surface(
+                                onClick = { showSettingsModal = true },
+                                shape = RoundedCornerShape(999.dp),
+                                color = EspressoInk,
+                                modifier = Modifier.testTag("profile_open_settings_pill")
+                            ) {
+                                Row(
+                                    modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp),
+                                    verticalAlignment = Alignment.CenterVertically
+                                ) {
+                                    Icon(
+                                        imageVector = Icons.Outlined.Settings,
+                                        contentDescription = "Settings",
+                                        tint = SandCream,
+                                        modifier = Modifier.size(13.dp)
+                                    )
+                                    Spacer(modifier = Modifier.width(5.dp))
+                                    Text(
+                                        text = "Settings",
+                                        fontFamily = DmSansFontFamily,
+                                        fontWeight = FontWeight.Bold,
+                                        fontSize = 11.5.sp,
+                                        color = SandCream
                                     )
                                 }
                             }
@@ -353,12 +432,12 @@ fun ProfileVaultScreen(
                                 color = EspressoInk.copy(alpha = 0.12f)
                             ) {
                                 Text(
-                                    text = "${chosenGoals.size} Study ${if (chosenGoals.size == 1) "Goal" else "Goals"}",
+                                    text = "${chosenGoals.size} ${if (chosenGoals.size == 1) "Goal" else "Goals"}",
                                     fontFamily = DmSansFontFamily,
                                     fontWeight = FontWeight.SemiBold,
                                     fontSize = 11.5.sp,
                                     color = EspressoInk,
-                                    modifier = Modifier.padding(horizontal = 11.dp, vertical = 6.dp)
+                                    modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp)
                                 )
                             }
                         }
@@ -494,7 +573,7 @@ fun ProfileVaultScreen(
                                 color = if (isAll) SandCream else EspressoCard
                             ) {
                                 Text(
-                                    text = "Recommended For You · Y$curriculumYear",
+                                    text = "Recommended For You · $yearLabel",
                                     fontFamily = DmSansFontFamily,
                                     fontWeight = FontWeight.Bold,
                                     fontSize = 11.5.sp,
@@ -560,7 +639,7 @@ fun ProfileVaultScreen(
                         )
                         Spacer(modifier = Modifier.height(6.dp))
                         Text(
-                            text = "Bookmark textbooks from Library or import your own PDF to build your personal IG-style shelf synced to Google.",
+                            text = "Bookmark textbooks from Library or import your own PDF to build your personal IG-style shelf saved in your study cache.",
                             fontFamily = DmSansFontFamily,
                             fontSize = 13.sp,
                             lineHeight = 19.sp,
@@ -669,6 +748,30 @@ fun ProfileVaultScreen(
         }
     }
 
+    if (showSettingsModal) {
+        ProfileSettingsDialog(
+            preferences = readerPreferences,
+            totalBooksCount = allBooks.size,
+            savedBooksCount = personalSavedBooks.size,
+            notesCount = cloudNotes.size,
+            onDismiss = { showSettingsModal = false },
+            onSelectPaperTheme = onSelectPaperTheme,
+            onSelectFontSize = onSelectFontSize,
+            onToggleCropPdfMargins = onToggleCropPdfMargins,
+            onToggleAutoSyncOnLaunch = onToggleAutoSyncOnLaunch,
+            onToggleResetToPortraitTrimmed = onToggleResetToPortraitTrimmed,
+            onSaveCustomGeminiApiKey = onSaveCustomGeminiApiKey,
+            onSyncCatalogNow = {
+                onRefreshCatalog()
+                showSettingsModal = false
+            },
+            onOpenSurvey = {
+                showSettingsModal = false
+                showFullSurveyModal = true
+            }
+        )
+    }
+
     if (showEditProfileDialog) {
         var mantraInput by remember(studyMantra) { mutableStateOf(studyMantra) }
         var yearSelection by remember(curriculumYear) { mutableIntStateOf(curriculumYear) }
@@ -689,16 +792,16 @@ fun ProfileVaultScreen(
             text = {
                 Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
                     Text(
-                        text = "Select your current Civil Engineering year:",
+                        text = "Select your current Engineering year or Masters level:",
                         fontFamily = DmSansFontFamily,
                         fontSize = 13.sp,
                         color = SandCreamMuted
                     )
                     Row(
                         modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                        horizontalArrangement = Arrangement.spacedBy(6.dp)
                     ) {
-                        (1..4).forEach { yr ->
+                        (1..5).forEach { yr ->
                             val active = yearSelection == yr
                             Surface(
                                 onClick = { yearSelection = yr },
@@ -707,10 +810,10 @@ fun ProfileVaultScreen(
                                 modifier = Modifier.weight(1f)
                             ) {
                                 Text(
-                                    text = "Year $yr",
+                                    text = if (yr == 5) "MS" else "Y$yr",
                                     fontFamily = DmSansFontFamily,
                                     fontWeight = FontWeight.Bold,
-                                    fontSize = 12.5.sp,
+                                    fontSize = 12.sp,
                                     color = if (active) EspressoInk else SandCreamLight,
                                     textAlign = TextAlign.Center,
                                     modifier = Modifier.padding(vertical = 9.dp)
@@ -753,6 +856,374 @@ fun ProfileVaultScreen(
                     Text("Cancel", color = SandCreamLight)
                 }
             }
+        )
+    }
+}
+
+@Composable
+private fun ProfileSettingsDialog(
+    preferences: ReaderPreferences,
+    totalBooksCount: Int,
+    savedBooksCount: Int,
+    notesCount: Int,
+    onDismiss: () -> Unit,
+    onSelectPaperTheme: (PaperTheme) -> Unit,
+    onSelectFontSize: (Float) -> Unit,
+    onToggleCropPdfMargins: (Boolean) -> Unit,
+    onToggleAutoSyncOnLaunch: (Boolean) -> Unit,
+    onToggleResetToPortraitTrimmed: (Boolean) -> Unit,
+    onSaveCustomGeminiApiKey: (String) -> Unit,
+    onSyncCatalogNow: () -> Unit,
+    onOpenSurvey: () -> Unit
+) {
+    var apiKeyDraft by remember(preferences.customGeminiApiKey) {
+        mutableStateOf(preferences.customGeminiApiKey)
+    }
+
+    Dialog(
+        onDismissRequest = onDismiss,
+        properties = DialogProperties(usePlatformDefaultWidth = false)
+    ) {
+        Surface(
+            shape = RoundedCornerShape(24.dp),
+            color = EspressoCard,
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 16.dp, vertical = 24.dp)
+        ) {
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .verticalScroll(rememberScrollState())
+                    .padding(20.dp),
+                verticalArrangement = Arrangement.spacedBy(16.dp)
+            ) {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Column {
+                        Text(
+                            text = "App & Reader Settings",
+                            fontFamily = PlayfairDisplayFontFamily,
+                            fontWeight = FontWeight.Bold,
+                            fontSize = 22.sp,
+                            color = SandCreamLight
+                        )
+                        Text(
+                            text = "Appearance, reading defaults, auto-sync & AI Study Assistant",
+                            fontFamily = DmSansFontFamily,
+                            fontSize = 12.sp,
+                            color = SandCreamMuted
+                        )
+                    }
+                    TextButton(onClick = onDismiss) {
+                        Text(
+                            text = "Done",
+                            fontFamily = DmSansFontFamily,
+                            fontWeight = FontWeight.Bold,
+                            color = SandCream
+                        )
+                    }
+                }
+
+                HorizontalDivider(color = SandCream.copy(alpha = 0.14f))
+
+                // 1. APPEARANCE & PAPER THEME
+                Text(
+                    text = "APPEARANCE & DEFAULT PAPER THEME",
+                    fontFamily = DmSansFontFamily,
+                    fontWeight = FontWeight.Bold,
+                    fontSize = 11.sp,
+                    letterSpacing = 0.9.sp,
+                    color = SandCream
+                )
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    val themes = listOf(
+                        PaperTheme.PARCHMENT to "Book Parchment",
+                        PaperTheme.CRISP to "Crisp White",
+                        PaperTheme.BLUEPRINT_DARK to "Blueprint Night"
+                    )
+                    themes.forEach { (theme, label) ->
+                        val selected = preferences.paperTheme == theme
+                        Surface(
+                            onClick = { onSelectPaperTheme(theme) },
+                            shape = RoundedCornerShape(12.dp),
+                            color = if (selected) SandCream else EspressoBg,
+                            border = androidx.compose.foundation.BorderStroke(
+                                width = 1.dp,
+                                color = if (selected) SandCream else SageOlive.copy(alpha = 0.45f)
+                            ),
+                            modifier = Modifier.weight(1f)
+                        ) {
+                            Text(
+                                text = label,
+                                fontFamily = DmSansFontFamily,
+                                fontWeight = FontWeight.Bold,
+                                fontSize = 11.5.sp,
+                                color = if (selected) EspressoInk else SandCreamLight,
+                                textAlign = TextAlign.Center,
+                                modifier = Modifier.padding(vertical = 11.dp, horizontal = 6.dp)
+                            )
+                        }
+                    }
+                }
+
+                // Font Size Slider
+                Column {
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween
+                    ) {
+                        Text(
+                            text = "Default Reading Text Size",
+                            fontFamily = DmSansFontFamily,
+                            fontWeight = FontWeight.SemiBold,
+                            fontSize = 13.5.sp,
+                            color = SandCreamLight
+                        )
+                        Text(
+                            text = "${preferences.fontSizeSp.toInt()} sp",
+                            fontFamily = DmSansFontFamily,
+                            fontWeight = FontWeight.Bold,
+                            fontSize = 13.5.sp,
+                            color = SandCream
+                        )
+                    }
+                    Slider(
+                        value = preferences.fontSizeSp,
+                        onValueChange = { onSelectFontSize(it) },
+                        valueRange = 14f..24f,
+                        steps = 9,
+                        colors = SliderDefaults.colors(
+                            thumbColor = SandCream,
+                            activeTrackColor = SandCream,
+                            inactiveTrackColor = EspressoBg
+                        )
+                    )
+                }
+
+                HorizontalDivider(color = SandCream.copy(alpha = 0.14f))
+
+                // 2. READER DEFAULTS (PORTRAIT TRIMMED ON OPEN)
+                Text(
+                    text = "BOOK READER DEFAULTS",
+                    fontFamily = DmSansFontFamily,
+                    fontWeight = FontWeight.Bold,
+                    fontSize = 11.sp,
+                    letterSpacing = 0.9.sp,
+                    color = SandCream
+                )
+
+                SettingsSwitchRow(
+                    title = "Reset to Portrait Trimmed on Book Open",
+                    subtitle = "Every time you open a book, start in 1-Page Portrait view with PDF margins trimmed",
+                    checked = preferences.resetToPortraitTrimmedOnOpen,
+                    onCheckedChange = onToggleResetToPortraitTrimmed
+                )
+
+                SettingsSwitchRow(
+                    title = "Trim PDF White Margins by Default",
+                    subtitle = "Zoom slightly to crop blank outer PDF borders for crisp engineering diagrams",
+                    checked = preferences.cropPdfMargins,
+                    onCheckedChange = onToggleCropPdfMargins
+                )
+
+                HorizontalDivider(color = SandCream.copy(alpha = 0.14f))
+
+                // 3. CATALOG AUTO-SYNC
+                Text(
+                    text = "LIBRARY SYNC & ENGINEERING CATALOG",
+                    fontFamily = DmSansFontFamily,
+                    fontWeight = FontWeight.Bold,
+                    fontSize = 11.sp,
+                    letterSpacing = 0.9.sp,
+                    color = SandCream
+                )
+
+                SettingsSwitchRow(
+                    title = "Auto-Sync Catalog Every Time App Opens",
+                    subtitle = "Automatically check for updated Civil, Allied, Masters, Math & Physics textbooks on launch",
+                    checked = preferences.autoSyncOnLaunch,
+                    onCheckedChange = onToggleAutoSyncOnLaunch
+                )
+
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(10.dp)
+                ) {
+                    Surface(
+                        onClick = onSyncCatalogNow,
+                        shape = RoundedCornerShape(12.dp),
+                        color = SandCream,
+                        modifier = Modifier.weight(1f)
+                    ) {
+                        Text(
+                            text = "Sync Catalog Now",
+                            fontFamily = DmSansFontFamily,
+                            fontWeight = FontWeight.Bold,
+                            fontSize = 12.5.sp,
+                            color = EspressoInk,
+                            textAlign = TextAlign.Center,
+                            modifier = Modifier.padding(vertical = 11.dp)
+                        )
+                    }
+                    Surface(
+                        onClick = onOpenSurvey,
+                        shape = RoundedCornerShape(12.dp),
+                        color = EspressoBg,
+                        border = androidx.compose.foundation.BorderStroke(1.dp, SageOlive.copy(alpha = 0.5f)),
+                        modifier = Modifier.weight(1f)
+                    ) {
+                        Text(
+                            text = "Retake Study Survey",
+                            fontFamily = DmSansFontFamily,
+                            fontWeight = FontWeight.Bold,
+                            fontSize = 12.5.sp,
+                            color = SandCreamLight,
+                            textAlign = TextAlign.Center,
+                            modifier = Modifier.padding(vertical = 11.dp)
+                        )
+                    }
+                }
+
+                HorizontalDivider(color = SandCream.copy(alpha = 0.14f))
+
+                // 4. AI STUDY ASSISTANT SETTINGS
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(6.dp)
+                ) {
+                    Icon(
+                        imageVector = Icons.Outlined.AutoAwesome,
+                        contentDescription = null,
+                        tint = SandCream,
+                        modifier = Modifier.size(15.dp)
+                    )
+                    Text(
+                        text = "AI STUDY ASSISTANT (FREE LLM + OPTIONAL GEMINI KEY)",
+                        fontFamily = DmSansFontFamily,
+                        fontWeight = FontWeight.Bold,
+                        fontSize = 11.sp,
+                        letterSpacing = 0.8.sp,
+                        color = SandCream
+                    )
+                }
+                Text(
+                    text = "Built-in Free Engineering AI works immediately with zero key required. Optionally paste a free-tier Google Gemini API key below for Gemini 2.0 Flash responses.",
+                    fontFamily = DmSansFontFamily,
+                    fontSize = 11.8.sp,
+                    color = SandCreamMuted,
+                    lineHeight = 16.sp
+                )
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    OutlinedTextField(
+                        value = apiKeyDraft,
+                        onValueChange = { apiKeyDraft = it },
+                        placeholder = {
+                            Text(
+                                text = "Optional: AIzaSy... (Leave blank for built-in Free AI)",
+                                fontSize = 11.5.sp,
+                                color = SandCreamMuted.copy(alpha = 0.7f)
+                            )
+                        },
+                        singleLine = true,
+                        colors = OutlinedTextFieldDefaults.colors(
+                            focusedTextColor = SandCreamLight,
+                            unfocusedTextColor = SandCreamLight,
+                            focusedBorderColor = SandCream,
+                            unfocusedBorderColor = SageOlive.copy(alpha = 0.5f),
+                            cursorColor = SandCream
+                        ),
+                        modifier = Modifier.weight(1f)
+                    )
+                    Surface(
+                        onClick = { onSaveCustomGeminiApiKey(apiKeyDraft) },
+                        shape = RoundedCornerShape(12.dp),
+                        color = SageOlive
+                    ) {
+                        Text(
+                            text = "Save Key",
+                            fontFamily = DmSansFontFamily,
+                            fontWeight = FontWeight.Bold,
+                            fontSize = 12.sp,
+                            color = EspressoInk,
+                            modifier = Modifier.padding(horizontal = 12.dp, vertical = 14.dp)
+                        )
+                    }
+                }
+
+                // 5. STUDY CACHE STATUS
+                Surface(
+                    shape = RoundedCornerShape(12.dp),
+                    color = EspressoBg,
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Text(
+                        text = "Always-On Study Cache Active · $totalBooksCount catalog textbooks · $savedBooksCount saved on shelf · $notesCount study notes cached offline",
+                        fontFamily = DmSansFontFamily,
+                        fontSize = 11.5.sp,
+                        color = SandCreamMuted,
+                        textAlign = TextAlign.Center,
+                        modifier = Modifier.padding(12.dp)
+                    )
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun SettingsSwitchRow(
+    title: String,
+    subtitle: String,
+    checked: Boolean,
+    onCheckedChange: (Boolean) -> Unit
+) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clip(RoundedCornerShape(12.dp))
+            .background(EspressoBg)
+            .clickable { onCheckedChange(!checked) }
+            .padding(horizontal = 14.dp, vertical = 10.dp),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.SpaceBetween
+    ) {
+        Column(modifier = Modifier.weight(1f).padding(end = 12.dp)) {
+            Text(
+                text = title,
+                fontFamily = DmSansFontFamily,
+                fontWeight = FontWeight.SemiBold,
+                fontSize = 13.5.sp,
+                color = SandCreamLight
+            )
+            Spacer(modifier = Modifier.height(2.dp))
+            Text(
+                text = subtitle,
+                fontFamily = DmSansFontFamily,
+                fontSize = 11.5.sp,
+                lineHeight = 15.sp,
+                color = SandCreamMuted
+            )
+        }
+        Switch(
+            checked = checked,
+            onCheckedChange = onCheckedChange,
+            colors = SwitchDefaults.colors(
+                checkedThumbColor = EspressoInk,
+                checkedTrackColor = SandCream,
+                uncheckedThumbColor = SandCreamMuted,
+                uncheckedTrackColor = EspressoCard
+            )
         )
     }
 }

@@ -27,6 +27,7 @@ import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.key
@@ -40,7 +41,10 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.unit.dp
 import androidx.credentials.CredentialManager
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.LifecycleEventObserver
 import androidx.lifecycle.ViewModelProvider.AndroidViewModelFactory.Companion.APPLICATION_KEY
+import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.lifecycle.viewmodel.initializer
@@ -298,6 +302,20 @@ private fun AuthenticatedCivLibApp(
         onConsumeIncomingPdf()
     }
 
+    // Auto-sync open-access engineering catalog every time the app is opened/resumed
+    val lifecycleOwner = LocalLifecycleOwner.current
+    DisposableEffect(lifecycleOwner, readerPreferences.autoSyncOnLaunch) {
+        val observer = LifecycleEventObserver { _, event ->
+            if (event == Lifecycle.Event.ON_START && readerPreferences.autoSyncOnLaunch) {
+                viewModel.refreshOpenAccessCatalog(silent = true)
+            }
+        }
+        lifecycleOwner.lifecycle.addObserver(observer)
+        onDispose {
+            lifecycleOwner.lifecycle.removeObserver(observer)
+        }
+    }
+
     LaunchedEffect(snackbarMessage) {
         val msg = snackbarMessage ?: return@LaunchedEffect
         snackbarHostState.showSnackbar(msg)
@@ -415,6 +433,7 @@ private fun AuthenticatedCivLibApp(
                             personalSavedBooks = personalSavedBooks,
                             completedCount = completedBookIds.size,
                             cloudNotes = cloudNotes,
+                            readerPreferences = readerPreferences,
                             onImportPdfClick = launchPdfImport,
                             onRefreshCatalog = { viewModel.refreshOpenAccessCatalog(silent = false) },
                             onUpdateProfilePreferences = { mantra, yr ->
@@ -432,6 +451,12 @@ private fun AuthenticatedCivLibApp(
                                     selectedGoals = res.selectedGoals
                                 )
                             },
+                            onSelectPaperTheme = viewModel::setPaperTheme,
+                            onSelectFontSize = viewModel::setFontSize,
+                            onToggleCropPdfMargins = viewModel::setCropPdfMargins,
+                            onToggleAutoSyncOnLaunch = viewModel::setAutoSyncOnLaunch,
+                            onToggleResetToPortraitTrimmed = viewModel::setResetToPortraitTrimmedOnOpen,
+                            onSaveCustomGeminiApiKey = viewModel::setCustomGeminiApiKey,
                             onSignOutClick = handleSignOut,
                             onSwitchGoogleAccount = handleSignOut,
                             onBookClick = openBookDetail,
@@ -495,6 +520,7 @@ private fun AuthenticatedCivLibApp(
                             downloadProgress = downloadProgressMap[bookId],
                             isBookmarked = safeDocId in bookmarkedBookIds || bookId in bookmarkedBookIds,
                             isCompleted = safeDocId in completedBookIds || bookId in completedBookIds,
+                            customGeminiApiKey = readerPreferences.customGeminiApiKey,
                             onBack = { navController.popBackStack() },
                             onOpenReader = { pageNum -> openBookReader(bookId, pageNum) },
                             onDownloadBook = { target ->
@@ -505,7 +531,12 @@ private fun AuthenticatedCivLibApp(
                             onCancelDownload = viewModel::cancelDownload,
                             onRemoveOffline = viewModel::removeOfflineBook,
                             onToggleBookmark = viewModel::toggleBookInPersonalLibrary,
-                            onToggleCompleted = viewModel::toggleBookCompleted
+                            onToggleCompleted = viewModel::toggleBookCompleted,
+                            onSaveReviewNote = { pNum, chTitle, noteText ->
+                                book?.let { b ->
+                                    viewModel.saveReviewNote(b.id, b.title, pNum, chTitle, noteText)
+                                }
+                            }
                         )
                     }
 

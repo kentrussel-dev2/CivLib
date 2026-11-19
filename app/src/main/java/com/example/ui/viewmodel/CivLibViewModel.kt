@@ -336,6 +336,35 @@ class CivLibViewModel(
         }
     }
 
+    fun setFontSize(sizeSp: Float) {
+        viewModelScope.launch {
+            preferencesStore.updateFontSize(sizeSp.coerceIn(14f, 24f))
+        }
+    }
+
+    fun setAutoSyncOnLaunch(enabled: Boolean) {
+        viewModelScope.launch {
+            preferencesStore.updateAutoSyncOnLaunch(enabled)
+        }
+    }
+
+    fun setResetToPortraitTrimmedOnOpen(enabled: Boolean) {
+        viewModelScope.launch {
+            preferencesStore.updateResetToPortraitTrimmedOnOpen(enabled)
+        }
+    }
+
+    fun setCustomGeminiApiKey(apiKey: String) {
+        viewModelScope.launch {
+            preferencesStore.updateCustomGeminiApiKey(apiKey)
+            _snackbarMessage.value = if (apiKey.trim().isNotBlank()) {
+                "Saved Gemini API key for AI Study Assistant"
+            } else {
+                "Using built-in Free Engineering AI"
+            }
+        }
+    }
+
     fun saveProfileOnboardingSurvey(
         displayName: String,
         email: String?,

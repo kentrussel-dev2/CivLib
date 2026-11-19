@@ -83,6 +83,14 @@ data class ProfileSurveyResult(
     val studyMantra: String
 )
 
+private val EngineeringCoursePrograms = listOf(
+    "BS Civil Engineering (BSCE)",
+    "MS / Masters in Civil & Structural Eng. (MSCE)",
+    "Mechanical, Electrical & Allied Engineering",
+    "Architecture & Construction Management",
+    "Engineering Math, Physics & General STEM"
+)
+
 private data class YearSurveyOption(
     val year: Int,
     val badge: String,
@@ -95,16 +103,16 @@ private val YearSurveyOptions = listOf(
     YearSurveyOption(
         year = 1,
         badge = "YEAR 1",
-        title = "1st Year · Engineering Foundations",
-        subtitle = "Statics, Dynamics, Engineering Calculus & Physics (CE 101–104)",
-        defaultSubjects = listOf(CivilSubject.MECHANICS)
+        title = "1st Year · Engineering Foundations, Math & Physics",
+        subtitle = "Engineering Calculus, Physics, Statics & Dynamics (ENGR 101 / CE 101)",
+        defaultSubjects = listOf(CivilSubject.MATH_PHYSICS, CivilSubject.MECHANICS)
     ),
     YearSurveyOption(
         year = 2,
         badge = "YEAR 2",
-        title = "2nd Year · Surveying & Materials",
-        subtitle = "Geomatics, Strength of Materials & Concrete Tech (CE 201–208)",
-        defaultSubjects = listOf(CivilSubject.SURVEYING, CivilSubject.MATERIALS)
+        title = "2nd Year · Surveying, Materials & Allied Eng.",
+        subtitle = "Geomatics, Strength of Materials, Concrete & Allied ME/EE (CE 201–210)",
+        defaultSubjects = listOf(CivilSubject.SURVEYING, CivilSubject.MATERIALS, CivilSubject.ALLIED_ENGINEERING)
     ),
     YearSurveyOption(
         year = 3,
@@ -124,6 +132,13 @@ private val YearSurveyOptions = listOf(
         title = "4th Year · Design, Capstone & Board Exam",
         subtitle = "Reinforced Concrete/Steel Design, Environmental & Construction Mgmt (CE 401–408)",
         defaultSubjects = listOf(CivilSubject.ENVIRONMENTAL, CivilSubject.CONSTRUCTION, CivilSubject.STRUCTURAL)
+    ),
+    YearSurveyOption(
+        year = 5,
+        badge = "MASTERS / GRADUATE",
+        title = "Masters, Graduate & Licensed Engineer (MSCE / RCE)",
+        subtitle = "Finite Element Method (FEM), Structural Dynamics, Seismic, Plates & Shells (MSCE 501+)",
+        defaultSubjects = listOf(CivilSubject.MASTERS_GRADUATE, CivilSubject.STRUCTURAL, CivilSubject.GEOTECHNICAL)
     )
 )
 
@@ -150,6 +165,16 @@ private val StudyGoalOptions = listOf(
         shortBadge = "Design Track"
     ),
     StudyGoalOption(
+        title = "Masters, FEM & Earthquake Engineering",
+        subtitle = "Graduate structural dynamics, finite element analysis, plates & shells",
+        shortBadge = "Masters / MSCE"
+    ),
+    StudyGoalOption(
+        title = "Engineering Math, Calculus & Physics Mastery",
+        subtitle = "Differential/integral calculus, differential equations & engineering physics",
+        shortBadge = "Math & Physics"
+    ),
+    StudyGoalOption(
         title = "Capstone Project & Field Reference",
         subtitle = "Codes, estimating, hydraulics & construction management",
         shortBadge = "Capstone & Field"
@@ -173,7 +198,12 @@ fun AuthScreen(
 ) {
     var surveyStep by rememberSaveable { mutableIntStateOf(0) } // 0..3 (4 questions)
     var studentName by rememberSaveable { mutableStateOf(initialName) }
-    var selectedYear by rememberSaveable { mutableIntStateOf(initialYear.coerceIn(1, 4)) }
+    var selectedCourseProgram by rememberSaveable {
+        mutableStateOf(
+            if (initialYear >= 5) EngineeringCoursePrograms[1] else EngineeringCoursePrograms[0]
+        )
+    }
+    var selectedYear by rememberSaveable { mutableIntStateOf(initialYear.coerceIn(1, 5)) }
 
     val seedSubjects = remember(initialSubjectKeys, initialSubjectKey) {
         val list = initialSubjectKeys.filter { it.isNotBlank() }
@@ -262,6 +292,40 @@ fun AuthScreen(
                     step = surveyStep,
                     studentName = studentName,
                     onNameChange = { studentName = it },
+                    selectedCourseProgram = selectedCourseProgram,
+                    onSelectCourseProgram = { courseProg ->
+                        selectedCourseProgram = courseProg
+                        when {
+                            courseProg.contains("Masters", ignoreCase = true) -> {
+                                selectedYear = 5
+                                selectedSubjectsRaw = listOf(
+                                    CivilSubject.MASTERS_GRADUATE.name,
+                                    CivilSubject.STRUCTURAL.name,
+                                    CivilSubject.GEOTECHNICAL.name
+                                ).joinToString("|")
+                            }
+                            courseProg.contains("Mechanical", ignoreCase = true) -> {
+                                selectedSubjectsRaw = listOf(
+                                    CivilSubject.ALLIED_ENGINEERING.name,
+                                    CivilSubject.MATH_PHYSICS.name,
+                                    CivilSubject.MECHANICS.name
+                                ).joinToString("|")
+                            }
+                            courseProg.contains("Math", ignoreCase = true) -> {
+                                selectedSubjectsRaw = listOf(
+                                    CivilSubject.MATH_PHYSICS.name,
+                                    CivilSubject.MECHANICS.name
+                                ).joinToString("|")
+                            }
+                            courseProg.contains("Architecture", ignoreCase = true) -> {
+                                selectedSubjectsRaw = listOf(
+                                    CivilSubject.CONSTRUCTION.name,
+                                    CivilSubject.STRUCTURAL.name,
+                                    CivilSubject.MATERIALS.name
+                                ).joinToString("|")
+                            }
+                        }
+                    },
                     selectedYear = selectedYear,
                     onSelectYear = { yr ->
                         selectedYear = yr
@@ -313,6 +377,13 @@ fun AuthScreen(
                             val chosenSubjects = selectedSubjectKeys.map { CivilSubject.fromKey(it) }.distinct()
                             val primarySubj = chosenSubjects.firstOrNull() ?: CivilSubject.MECHANICS
                             val finalName = studentName.trim().ifBlank { "Civil Engineer" }
+                            val courseShort = when {
+                                selectedCourseProgram.contains("Masters", ignoreCase = true) -> "MSCE"
+                                selectedCourseProgram.contains("Mechanical", ignoreCase = true) -> "Allied Eng"
+                                selectedCourseProgram.contains("Architecture", ignoreCase = true) -> "Arch/Const"
+                                selectedCourseProgram.contains("Math", ignoreCase = true) -> "STEM/Math"
+                                else -> "BSCE"
+                            }
                             val subjectSummary = if (chosenSubjects.size <= 2) {
                                 chosenSubjects.joinToString(", ") { it.shortName }
                             } else {
@@ -322,7 +393,7 @@ fun AuthScreen(
                                 StudyGoalOptions.firstOrNull { it.title == gTitle }?.shortBadge
                             }.ifEmpty { listOf("Semester Track") }.joinToString(" + ")
 
-                            val generatedMantra = "$subjectSummary · $goalSummary"
+                            val generatedMantra = "$courseShort · $subjectSummary · $goalSummary"
                             onSurveyCompleted(
                                 ProfileSurveyResult(
                                     displayName = finalName,
@@ -348,6 +419,8 @@ fun StudentProfileSurveyCard(
     step: Int,
     studentName: String,
     onNameChange: (String) -> Unit,
+    selectedCourseProgram: String = EngineeringCoursePrograms.first(),
+    onSelectCourseProgram: (String) -> Unit = {},
     selectedYear: Int,
     onSelectYear: (Int) -> Unit,
     selectedSubjectKeys: List<String>,
@@ -455,21 +528,21 @@ fun StudentProfileSurveyCard(
                     when (currentStep) {
                         0 -> {
                             Text(
-                                text = "1. What Is Your Name?",
+                                text = "1. Your Name & Engineering Course",
                                 fontFamily = PlayfairDisplayFontFamily,
                                 fontWeight = FontWeight.Bold,
-                                fontSize = 23.sp,
+                                fontSize = 22.sp,
                                 color = EspressoInk
                             )
                             Spacer(modifier = Modifier.height(6.dp))
                             Text(
-                                text = "No registration or account needed. Your name, reading progress, bookmarks, and notes stay saved automatically on your phone.",
+                                text = "No registration needed. Your name, course, reading progress, and notes stay saved automatically on your device.",
                                 fontFamily = LoraFontFamily,
-                                fontSize = 13.5.sp,
-                                lineHeight = 19.sp,
+                                fontSize = 13.sp,
+                                lineHeight = 18.5.sp,
                                 color = EspressoInkMuted
                             )
-                            Spacer(modifier = Modifier.height(18.dp))
+                            Spacer(modifier = Modifier.height(14.dp))
 
                             OutlinedTextField(
                                 value = studentName,
@@ -496,20 +569,13 @@ fun StudentProfileSurveyCard(
                                     .testTag("survey_name_input")
                             )
 
-                            Spacer(modifier = Modifier.height(14.dp))
+                            Spacer(modifier = Modifier.height(10.dp))
 
-                            Text(
-                                text = "Quick title prefixes:",
-                                fontFamily = DmSansFontFamily,
-                                fontSize = 11.5.sp,
-                                color = EspressoInkMuted
-                            )
-                            Spacer(modifier = Modifier.height(6.dp))
                             Row(
                                 modifier = Modifier.fillMaxWidth(),
                                 horizontalArrangement = Arrangement.spacedBy(8.dp)
                             ) {
-                                listOf("Engr. ", "BSCE Student", "Future RCE").forEach { preset ->
+                                listOf("Engr. ", "BSCE Student", "MSCE", "Future RCE").forEach { preset ->
                                     Surface(
                                         onClick = {
                                             onNameChange(
@@ -525,10 +591,62 @@ fun StudentProfileSurveyCard(
                                             text = preset.trim(),
                                             fontFamily = DmSansFontFamily,
                                             fontWeight = FontWeight.SemiBold,
-                                            fontSize = 11.5.sp,
+                                            fontSize = 11.sp,
                                             color = EspressoInk,
-                                            modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp)
+                                            modifier = Modifier.padding(horizontal = 10.dp, vertical = 5.dp)
                                         )
+                                    }
+                                }
+                            }
+
+                            Spacer(modifier = Modifier.height(14.dp))
+                            Text(
+                                text = "What is your Course / Engineering Program?",
+                                fontFamily = DmSansFontFamily,
+                                fontWeight = FontWeight.Bold,
+                                fontSize = 12.5.sp,
+                                color = EspressoInk
+                            )
+                            Spacer(modifier = Modifier.height(8.dp))
+
+                            Column(verticalArrangement = Arrangement.spacedBy(7.dp)) {
+                                EngineeringCoursePrograms.forEach { prog ->
+                                    val isSelected = selectedCourseProgram == prog
+                                    Surface(
+                                        onClick = { onSelectCourseProgram(prog) },
+                                        shape = RoundedCornerShape(12.dp),
+                                        color = if (isSelected) EspressoInk else Color.White.copy(alpha = 0.75f),
+                                        modifier = Modifier
+                                            .fillMaxWidth()
+                                            .border(
+                                                width = if (isSelected) 1.5.dp else 1.dp,
+                                                color = if (isSelected) EspressoInk else EspressoInk.copy(alpha = 0.16f),
+                                                shape = RoundedCornerShape(12.dp)
+                                            )
+                                    ) {
+                                        Row(
+                                            modifier = Modifier
+                                                .fillMaxWidth()
+                                                .padding(horizontal = 12.dp, vertical = 9.dp),
+                                            horizontalArrangement = Arrangement.SpaceBetween,
+                                            verticalAlignment = Alignment.CenterVertically
+                                        ) {
+                                            Text(
+                                                text = prog,
+                                                fontFamily = DmSansFontFamily,
+                                                fontWeight = FontWeight.SemiBold,
+                                                fontSize = 12.5.sp,
+                                                color = if (isSelected) SandCreamLight else EspressoInk
+                                            )
+                                            if (isSelected) {
+                                                Icon(
+                                                    imageVector = Icons.Filled.CheckCircle,
+                                                    contentDescription = "Selected",
+                                                    tint = SandCream,
+                                                    modifier = Modifier.size(16.dp)
+                                                )
+                                            }
+                                        }
                                     }
                                 }
                             }
@@ -536,7 +654,7 @@ fun StudentProfileSurveyCard(
 
                         1 -> {
                             Text(
-                                text = "2. What Year Are You In?",
+                                text = "2. What Year / Level Are You In?",
                                 fontFamily = PlayfairDisplayFontFamily,
                                 fontWeight = FontWeight.Bold,
                                 fontSize = 23.sp,

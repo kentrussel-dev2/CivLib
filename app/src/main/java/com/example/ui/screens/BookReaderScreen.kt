@@ -180,6 +180,15 @@ fun BookReaderScreen(
     var showPageGridSheet by remember { mutableStateOf(false) }
     var showNoteSheet by remember { mutableStateOf(false) }
     var showGoToPageDialog by remember { mutableStateOf(false) }
+    var showAiAssistantDialog by rememberSaveable { mutableStateOf(false) }
+
+    // Default when opening a book: reset to Portrait (1-Page) + Trimmed margins
+    LaunchedEffect(book.id) {
+        if (preferences.resetToPortraitTrimmedOnOpen) {
+            onSelectReadingLayout(BookReadingLayout.SINGLE_PAGE)
+            onToggleCropPdfMargins(true)
+        }
+    }
 
     // Zoom & pan state for inspecting technical PDF diagrams & formulas
     var zoomScale by remember { mutableFloatStateOf(1f) }
@@ -335,6 +344,7 @@ fun BookReaderScreen(
                         onToggleBookmark = { onToggleBookmark(currentPageNumber, currentChapterLabel) },
                         onShowNoteSheet = { showNoteSheet = true },
                         onShowBookmarksSheet = { showBookmarksDrawer = true },
+                        onOpenAiAssistant = { showAiAssistantDialog = true },
                         onPrevious = {
                             if (spreadLeftIndex >= 2) {
                                 currentIndex = (spreadLeftIndex - 2).coerceAtLeast(0)
@@ -555,7 +565,8 @@ fun BookReaderScreen(
                     onShowJumpDialog = { showGoToPageDialog = true },
                     onToggleBookmark = { onToggleBookmark(currentPageNumber, currentChapterLabel) },
                     onShowNoteSheet = { showNoteSheet = true },
-                    onShowBookmarksSheet = { showBookmarksDrawer = true }
+                    onShowBookmarksSheet = { showBookmarksDrawer = true },
+                    onOpenAiAssistant = { showAiAssistantDialog = true }
                 )
             }
 
@@ -601,13 +612,16 @@ fun BookReaderScreen(
         }
     }
 
-    if (showPageGridSheet && isPdfMode) {
+    if (showPageGridSheet) {
         PdfPageThumbnailsSheet(
             session = pdfSession,
             totalPages = effectivePageCount,
             currentIndex = currentIndex,
             bookmarkedPages = bookmarkedPagesSet,
             paperTheme = preferences.paperTheme,
+            pages = pages,
+            bookTitle = book.title,
+            courseCode = book.courseCode,
             onSelectPageIndex = { idx ->
                 currentIndex = idx.coerceIn(0, effectivePageCount - 1)
                 showPageGridSheet = false
@@ -648,6 +662,23 @@ fun BookReaderScreen(
                 onSaveReviewNote(currentPageNumber, currentChapterLabel, noteDraft)
             },
             onDismiss = { showNoteSheet = false }
+        )
+    }
+
+    if (showAiAssistantDialog) {
+        com.example.ui.components.AiStudyAssistantFullScreenDialog(
+            book = book,
+            pages = pages,
+            bookmarks = bookmarks,
+            currentPageNumber = currentPageNumber,
+            customGeminiApiKey = preferences.customGeminiApiKey,
+            onDismiss = { showAiAssistantDialog = false },
+            onOpenPageInBook = { targetPageNum ->
+                currentIndex = (targetPageNum - 1).coerceIn(0, effectivePageCount - 1)
+            },
+            onSaveAiNoteForPage = { targetPageNum, noteText ->
+                onSaveReviewNote(targetPageNum, "Page $targetPageNum · ${book.title}", noteText)
+            }
         )
     }
 }

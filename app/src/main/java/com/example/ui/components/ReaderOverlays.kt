@@ -33,15 +33,20 @@ import androidx.compose.material.icons.automirrored.filled.ChromeReaderMode
 import androidx.compose.material.icons.automirrored.filled.KeyboardArrowLeft
 import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
 import androidx.compose.material.icons.automirrored.filled.List
+import androidx.compose.material.icons.filled.AutoAwesome
 import androidx.compose.material.icons.filled.Bookmark
 import androidx.compose.material.icons.filled.Crop
 import androidx.compose.material.icons.filled.EditNote
 import androidx.compose.material.icons.filled.GridView
+import androidx.compose.material.icons.filled.Menu
 import androidx.compose.material.icons.filled.Pin
 import androidx.compose.material.icons.outlined.BookmarkBorder
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
@@ -108,8 +113,11 @@ fun ReaderTopBarOverlay(
     onShowJumpDialog: () -> Unit,
     onToggleBookmark: () -> Unit,
     onShowNoteSheet: () -> Unit,
-    onShowBookmarksSheet: () -> Unit
+    onShowBookmarksSheet: () -> Unit,
+    onOpenAiAssistant: () -> Unit = {}
 ) {
+    var showHamburgerMenu by remember { mutableStateOf(false) }
+
     Surface(
         color = palette.card.copy(alpha = 0.96f),
         shadowElevation = 4.dp,
@@ -119,7 +127,7 @@ fun ReaderTopBarOverlay(
             modifier = Modifier
                 .fillMaxWidth()
                 .statusBarsPadding()
-                .padding(horizontal = 4.dp, vertical = 6.dp),
+                .padding(horizontal = 6.dp, vertical = 6.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
             IconButton(
@@ -148,88 +156,255 @@ fun ReaderTopBarOverlay(
                     overflow = TextOverflow.Ellipsis
                 )
             }
-            if (canToggleSpread) {
-                Surface(
-                    onClick = onToggleSpreadLayout,
-                    shape = RoundedCornerShape(8.dp),
-                    color = if (isTwoPageSpreadActive) palette.accent else palette.bg,
-                    modifier = Modifier
-                        .padding(end = 4.dp)
-                        .border(1.dp, palette.border, RoundedCornerShape(8.dp))
-                        .testTag("reader_top_spread_toggle")
-                ) {
-                    Row(
-                        modifier = Modifier.padding(horizontal = 8.dp, vertical = 6.dp),
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Icon(
-                            imageVector = Icons.AutoMirrored.Filled.ChromeReaderMode,
-                            contentDescription = "Switch between 2-page landscape and 1-page portrait",
-                            tint = if (isTwoPageSpreadActive) Color.White else palette.ink,
-                            modifier = Modifier.size(14.dp)
-                        )
-                        Spacer(modifier = Modifier.width(4.dp))
-                        Text(
-                            text = if (isTwoPageSpreadActive) "2P" else "1P",
-                            style = MaterialTheme.typography.labelSmall,
-                            color = if (isTwoPageSpreadActive) Color.White else palette.ink
-                        )
-                    }
-                }
-            }
-            if (isPdfMode) {
+
+            // Single clean Hamburger Menu button with labeled dropdown tools (including AI Assistant)
+            Box {
                 IconButton(
-                    onClick = onShowPageGrid,
-                    modifier = Modifier.testTag("reader_page_grid_button")
+                    onClick = { showHamburgerMenu = true },
+                    modifier = Modifier.testTag("reader_hamburger_menu_button")
                 ) {
                     Icon(
-                        imageVector = Icons.Filled.GridView,
-                        contentDescription = "Browse book pages visually",
+                        imageVector = Icons.Filled.Menu,
+                        contentDescription = "Reader tools menu",
                         tint = palette.ink
                     )
                 }
+
+                ReaderToolsHamburgerDropdown(
+                    expanded = showHamburgerMenu,
+                    onDismiss = { showHamburgerMenu = false },
+                    isPdfMode = isPdfMode,
+                    isBookmarked = isBookmarked,
+                    isTwoPageSpreadActive = isTwoPageSpreadActive,
+                    canToggleSpread = canToggleSpread,
+                    palette = palette,
+                    onOpenAiAssistant = onOpenAiAssistant,
+                    onShowPageGrid = onShowPageGrid,
+                    onShowJumpDialog = onShowJumpDialog,
+                    onToggleBookmark = onToggleBookmark,
+                    onShowNoteSheet = onShowNoteSheet,
+                    onShowBookmarksSheet = onShowBookmarksSheet,
+                    onToggleSpreadLayout = onToggleSpreadLayout
+                )
             }
-            IconButton(
-                onClick = onShowJumpDialog,
-                modifier = Modifier.testTag("reader_jump_page_button")
-            ) {
+        }
+    }
+}
+
+@Composable
+fun ReaderToolsHamburgerDropdown(
+    expanded: Boolean,
+    onDismiss: () -> Unit,
+    isPdfMode: Boolean,
+    isBookmarked: Boolean,
+    isTwoPageSpreadActive: Boolean,
+    canToggleSpread: Boolean,
+    palette: ReaderVisualPalette,
+    onOpenAiAssistant: () -> Unit,
+    onShowPageGrid: () -> Unit,
+    onShowJumpDialog: () -> Unit,
+    onToggleBookmark: () -> Unit,
+    onShowNoteSheet: () -> Unit,
+    onShowBookmarksSheet: () -> Unit,
+    onToggleSpreadLayout: () -> Unit
+) {
+    DropdownMenu(
+        expanded = expanded,
+        onDismissRequest = onDismiss,
+        containerColor = palette.card
+    ) {
+        DropdownMenuItem(
+            leadingIcon = {
+                Icon(
+                    imageVector = Icons.Filled.AutoAwesome,
+                    contentDescription = null,
+                    tint = palette.accent
+                )
+            },
+            text = {
+                Column {
+                    Text(
+                        text = "AI Study Assistant",
+                        fontWeight = FontWeight.Bold,
+                        color = palette.ink
+                    )
+                    Text(
+                        text = "Explain page, find topics in book, or save notes",
+                        style = MaterialTheme.typography.labelSmall,
+                        color = palette.subtle
+                    )
+                }
+            },
+            onClick = {
+                onDismiss()
+                onOpenAiAssistant()
+            },
+            modifier = Modifier.testTag("menu_ai_assistant")
+        )
+
+        HorizontalDivider(color = palette.border.copy(alpha = 0.5f))
+
+        DropdownMenuItem(
+            leadingIcon = {
+                Icon(
+                    imageVector = Icons.Filled.GridView,
+                    contentDescription = null,
+                    tint = palette.ink
+                )
+            },
+            text = {
+                Column {
+                    Text("Book Pages Preview", fontWeight = FontWeight.SemiBold, color = palette.ink)
+                    Text(
+                        text = "Browse visual thumbnails of all pages",
+                        style = MaterialTheme.typography.labelSmall,
+                        color = palette.subtle
+                    )
+                }
+            },
+            onClick = {
+                onDismiss()
+                onShowPageGrid()
+            },
+            modifier = Modifier.testTag("reader_page_grid_button")
+        )
+
+        DropdownMenuItem(
+            leadingIcon = {
                 Icon(
                     imageVector = Icons.Filled.Pin,
-                    contentDescription = "Jump to page number",
+                    contentDescription = null,
                     tint = palette.ink
                 )
-            }
-            IconButton(
-                onClick = onToggleBookmark,
-                modifier = Modifier.testTag("reader_bookmark_button")
-            ) {
+            },
+            text = {
+                Column {
+                    Text("Jump to Page Number", fontWeight = FontWeight.SemiBold, color = palette.ink)
+                    Text(
+                        text = "Type a page number to flip there",
+                        style = MaterialTheme.typography.labelSmall,
+                        color = palette.subtle
+                    )
+                }
+            },
+            onClick = {
+                onDismiss()
+                onShowJumpDialog()
+            },
+            modifier = Modifier.testTag("reader_jump_page_button")
+        )
+
+        DropdownMenuItem(
+            leadingIcon = {
                 Icon(
-                    imageVector = if (isBookmarked) Icons.Filled.Bookmark
-                    else Icons.Outlined.BookmarkBorder,
-                    contentDescription = "Bookmark page",
+                    imageVector = if (isBookmarked) Icons.Filled.Bookmark else Icons.Outlined.BookmarkBorder,
+                    contentDescription = null,
                     tint = if (isBookmarked) DraftingBrass else palette.ink
                 )
-            }
-            IconButton(
-                onClick = onShowNoteSheet,
-                modifier = Modifier.testTag("reader_note_button")
-            ) {
+            },
+            text = {
+                Column {
+                    Text(
+                        text = if (isBookmarked) "Remove Page Bookmark" else "Bookmark This Page",
+                        fontWeight = FontWeight.SemiBold,
+                        color = palette.ink
+                    )
+                    Text(
+                        text = "Pin page to your personal bookmarks",
+                        style = MaterialTheme.typography.labelSmall,
+                        color = palette.subtle
+                    )
+                }
+            },
+            onClick = {
+                onDismiss()
+                onToggleBookmark()
+            },
+            modifier = Modifier.testTag("reader_bookmark_button")
+        )
+
+        DropdownMenuItem(
+            leadingIcon = {
                 Icon(
                     imageVector = Icons.Filled.EditNote,
-                    contentDescription = "Add study review note",
+                    contentDescription = null,
                     tint = palette.ink
                 )
-            }
-            IconButton(
-                onClick = onShowBookmarksSheet,
-                modifier = Modifier.testTag("reader_toc_button")
-            ) {
+            },
+            text = {
+                Column {
+                    Text("Add / Edit Study Note", fontWeight = FontWeight.SemiBold, color = palette.ink)
+                    Text(
+                        text = "Write formula or exam note for this page",
+                        style = MaterialTheme.typography.labelSmall,
+                        color = palette.subtle
+                    )
+                }
+            },
+            onClick = {
+                onDismiss()
+                onShowNoteSheet()
+            },
+            modifier = Modifier.testTag("reader_note_button")
+        )
+
+        DropdownMenuItem(
+            leadingIcon = {
                 Icon(
                     imageVector = Icons.AutoMirrored.Filled.List,
-                    contentDescription = "Contents and bookmarks",
+                    contentDescription = null,
                     tint = palette.ink
                 )
-            }
+            },
+            text = {
+                Column {
+                    Text("Saved Bookmarks & Notes", fontWeight = FontWeight.SemiBold, color = palette.ink)
+                    Text(
+                        text = "View all bookmarked pages in this book",
+                        style = MaterialTheme.typography.labelSmall,
+                        color = palette.subtle
+                    )
+                }
+            },
+            onClick = {
+                onDismiss()
+                onShowBookmarksSheet()
+            },
+            modifier = Modifier.testTag("reader_toc_button")
+        )
+
+        if (canToggleSpread) {
+            HorizontalDivider(color = palette.border.copy(alpha = 0.5f))
+            DropdownMenuItem(
+                leadingIcon = {
+                    Icon(
+                        imageVector = Icons.AutoMirrored.Filled.ChromeReaderMode,
+                        contentDescription = null,
+                        tint = palette.ink
+                    )
+                },
+                text = {
+                    Column {
+                        Text(
+                            text = if (isTwoPageSpreadActive) "Switch to 1-Page Portrait"
+                            else "Switch to 2-Page Landscape",
+                            fontWeight = FontWeight.SemiBold,
+                            color = palette.ink
+                        )
+                        Text(
+                            text = if (isTwoPageSpreadActive) "Return to single-page portrait view"
+                            else "Open two-page landscape textbook spread",
+                            style = MaterialTheme.typography.labelSmall,
+                            color = palette.subtle
+                        )
+                    }
+                },
+                onClick = {
+                    onDismiss()
+                    onToggleSpreadLayout()
+                },
+                modifier = Modifier.testTag("reader_top_spread_toggle")
+            )
         }
     }
 }
@@ -508,6 +683,9 @@ fun PdfPageThumbnailsSheet(
     currentIndex: Int,
     bookmarkedPages: Set<Int>,
     paperTheme: PaperTheme,
+    pages: List<BookPageEntity> = emptyList(),
+    bookTitle: String = "Civil Engineering Volume",
+    courseCode: String = "CE",
     onSelectPageIndex: (Int) -> Unit,
     onDismiss: () -> Unit
 ) {
@@ -522,7 +700,7 @@ fun PdfPageThumbnailsSheet(
         Column(
             modifier = Modifier
                 .fillMaxWidth()
-                .height(480.dp)
+                .height(500.dp)
                 .padding(horizontal = 16.dp)
         ) {
             Row(
@@ -553,9 +731,15 @@ fun PdfPageThumbnailsSheet(
                 items(count = totalPages, key = { idx -> "thumb_$idx" }) { idx ->
                     val isCurrent = idx == currentIndex
                     val isBookmarked = (idx + 1) in bookmarkedPages
-                    val thumbBmp by produceState<Bitmap?>(initialValue = null, session, idx) {
-                        value = session?.renderThumbnail(idx, targetWidthPx = 200)
+                    val cachedThumb = remember(session, idx) {
+                        session?.getCachedThumbnail(idx)
                     }
+                    val asyncThumb by produceState<Bitmap?>(initialValue = cachedThumb, session, idx) {
+                        value = session?.getCachedThumbnail(idx)
+                            ?: session?.renderThumbnail(idx, targetWidthPx = 240)
+                    }
+                    val thumbBmp = cachedThumb ?: asyncThumb
+                    val pageRecord = pages.getOrNull(idx)
 
                     Column(
                         horizontalAlignment = Alignment.CenterHorizontally,
@@ -569,7 +753,7 @@ fun PdfPageThumbnailsSheet(
                                 .fillMaxWidth()
                                 .aspectRatio(0.72f)
                                 .clip(RoundedCornerShape(8.dp))
-                                .background(MaterialTheme.colorScheme.surfaceContainerHigh)
+                                .background(Color(0xFFF7F2E7))
                                 .border(
                                     width = if (isCurrent) 2.5.dp else 1.dp,
                                     color = if (isCurrent) DraftingBrass else MaterialTheme.colorScheme.outlineVariant,
@@ -584,14 +768,101 @@ fun PdfPageThumbnailsSheet(
                                     contentDescription = "Thumbnail page ${idx + 1}",
                                     contentScale = ContentScale.Fit,
                                     colorFilter = pdfColorFilterForTheme(paperTheme),
-                                    modifier = Modifier.fillMaxSize()
+                                    modifier = Modifier
+                                        .fillMaxSize()
+                                        .padding(2.dp)
                                 )
                             } else {
-                                Text(
-                                    text = "${idx + 1}",
-                                    style = MaterialTheme.typography.labelMedium,
-                                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                                )
+                                // Realistic miniature book page preview while PDF renders or for text volumes
+                                Column(
+                                    modifier = Modifier
+                                        .fillMaxSize()
+                                        .padding(8.dp),
+                                    verticalArrangement = Arrangement.SpaceBetween
+                                ) {
+                                    Column {
+                                        Row(
+                                            modifier = Modifier.fillMaxWidth(),
+                                            horizontalArrangement = Arrangement.SpaceBetween
+                                        ) {
+                                            Text(
+                                                text = courseCode,
+                                                fontFamily = JetBrainsMonoFontFamily,
+                                                fontWeight = FontWeight.Bold,
+                                                fontSize = 7.5.sp,
+                                                color = Color(0xFF7B412D)
+                                            )
+                                            Text(
+                                                text = "${idx + 1}",
+                                                fontFamily = JetBrainsMonoFontFamily,
+                                                fontWeight = FontWeight.Bold,
+                                                fontSize = 7.5.sp,
+                                                color = Color(0xFF5D534A)
+                                            )
+                                        }
+                                        Spacer(modifier = Modifier.height(4.dp))
+                                        Text(
+                                            text = pageRecord?.chapterTitle ?: "$bookTitle · Page ${idx + 1}",
+                                            fontWeight = FontWeight.Bold,
+                                            fontSize = 8.5.sp,
+                                            lineHeight = 10.5.sp,
+                                            color = Color(0xFF281F1A),
+                                            maxLines = 2,
+                                            overflow = TextOverflow.Ellipsis
+                                        )
+                                        Spacer(modifier = Modifier.height(5.dp))
+                                        // Miniature printed text lines representation
+                                        val snippet = pageRecord?.contentBody
+                                        if (!snippet.isNullOrBlank()) {
+                                            Text(
+                                                text = snippet,
+                                                fontSize = 6.5.sp,
+                                                lineHeight = 8.5.sp,
+                                                color = Color(0xFF4A3F37),
+                                                maxLines = 6,
+                                                overflow = TextOverflow.Ellipsis
+                                            )
+                                        } else {
+                                            repeat(6) { lineIdx ->
+                                                Box(
+                                                    modifier = Modifier
+                                                        .padding(vertical = 2.dp)
+                                                        .fillMaxWidth(if (lineIdx == 5) 0.62f else 0.96f)
+                                                        .height(3.dp)
+                                                        .clip(RoundedCornerShape(2.dp))
+                                                        .background(Color(0xFFD5CBB8))
+                                                )
+                                            }
+                                            Spacer(modifier = Modifier.height(4.dp))
+                                            // Simulated diagram/formula box inside page preview
+                                            Box(
+                                                modifier = Modifier
+                                                    .fillMaxWidth()
+                                                    .height(22.dp)
+                                                    .clip(RoundedCornerShape(4.dp))
+                                                    .background(Color(0xFFEAE2D0))
+                                                    .border(0.5.dp, Color(0xFFC5B8A2), RoundedCornerShape(4.dp)),
+                                                contentAlignment = Alignment.Center
+                                            ) {
+                                                Text(
+                                                    text = "P. ${idx + 1}",
+                                                    fontFamily = JetBrainsMonoFontFamily,
+                                                    fontWeight = FontWeight.Bold,
+                                                    fontSize = 8.sp,
+                                                    color = Color(0xFF5D534A)
+                                                )
+                                            }
+                                        }
+                                    }
+
+                                    Text(
+                                        text = "— ${idx + 1} —",
+                                        fontFamily = JetBrainsMonoFontFamily,
+                                        fontSize = 7.sp,
+                                        color = Color(0xFF7A6E63),
+                                        modifier = Modifier.align(Alignment.CenterHorizontally)
+                                    )
+                                }
                             }
 
                             if (isBookmarked) {
@@ -722,7 +993,7 @@ fun ReaderBookmarksAndContentsSheet(
                 } else if (isPdfMode) {
                     item {
                         Text(
-                            text = "No bookmarks saved in this PDF yet. Tap the bookmark icon on any equation, table, or diagram page to pin it here.",
+                            text = "No bookmarks saved in this PDF yet. Use the Hamburger menu (☰) to bookmark any equation, table, or diagram page.",
                             style = MaterialTheme.typography.bodySmall,
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
                             modifier = Modifier.padding(vertical = 12.dp)
@@ -815,6 +1086,7 @@ fun ReaderReviewNoteSheet(
 /**
  * Left vertical option bar for 2-Page Landscape mode so controls sit cleanly on the left side
  * without covering the top or bottom of the two-page textbook spread.
+ * Uses the same single Hamburger Dropdown Menu (with labels & AI Study Assistant).
  */
 @Composable
 fun ReaderLandscapeLeftBarOverlay(
@@ -831,9 +1103,12 @@ fun ReaderLandscapeLeftBarOverlay(
     onToggleBookmark: () -> Unit,
     onShowNoteSheet: () -> Unit,
     onShowBookmarksSheet: () -> Unit,
+    onOpenAiAssistant: () -> Unit = {},
     onPrevious: () -> Unit,
     modifier: Modifier = Modifier
 ) {
+    var showHamburgerMenu by remember { mutableStateOf(false) }
+
     Surface(
         color = palette.card.copy(alpha = 0.96f),
         shadowElevation = 6.dp,
@@ -845,124 +1120,103 @@ fun ReaderLandscapeLeftBarOverlay(
         Column(
             modifier = Modifier
                 .fillMaxSize()
-                .padding(vertical = 6.dp, horizontal = 4.dp),
+                .padding(vertical = 8.dp, horizontal = 4.dp),
             horizontalAlignment = Alignment.CenterHorizontally,
             verticalArrangement = Arrangement.SpaceBetween
         ) {
-            IconButton(
-                onClick = onBack,
-                modifier = Modifier
-                    .size(38.dp)
-                    .testTag("reader_back_button")
+            Column(
+                horizontalAlignment = Alignment.CenterHorizontally,
+                verticalArrangement = Arrangement.spacedBy(8.dp)
             ) {
-                Icon(
-                    imageVector = Icons.AutoMirrored.Filled.ArrowBack,
-                    contentDescription = "Close reader",
-                    tint = palette.ink,
-                    modifier = Modifier.size(20.dp)
-                )
-            }
-
-            if (canToggleSpread) {
-                Surface(
-                    onClick = onToggleSpreadLayout,
-                    shape = RoundedCornerShape(8.dp),
-                    color = if (isTwoPageSpreadActive) palette.accent else palette.bg,
-                    modifier = Modifier
-                        .border(1.dp, palette.border, RoundedCornerShape(8.dp))
-                        .testTag("reader_top_spread_toggle")
-                ) {
-                    Column(
-                        modifier = Modifier.padding(horizontal = 7.dp, vertical = 4.dp),
-                        horizontalAlignment = Alignment.CenterHorizontally
-                    ) {
-                        Icon(
-                            imageVector = Icons.AutoMirrored.Filled.ChromeReaderMode,
-                            contentDescription = "Switch to 1-page portrait",
-                            tint = if (isTwoPageSpreadActive) Color.White else palette.ink,
-                            modifier = Modifier.size(14.dp)
-                        )
-                        Text(
-                            text = if (isTwoPageSpreadActive) "2P" else "1P",
-                            style = MaterialTheme.typography.labelSmall,
-                            fontSize = 10.sp,
-                            color = if (isTwoPageSpreadActive) Color.White else palette.ink
-                        )
-                    }
-                }
-            }
-
-            if (isPdfMode) {
                 IconButton(
-                    onClick = onShowPageGrid,
+                    onClick = onBack,
                     modifier = Modifier
-                        .size(36.dp)
-                        .testTag("reader_page_grid_button")
+                        .size(38.dp)
+                        .testTag("reader_back_button")
                 ) {
                     Icon(
-                        imageVector = Icons.Filled.GridView,
-                        contentDescription = "Browse book pages visually",
+                        imageVector = Icons.AutoMirrored.Filled.ArrowBack,
+                        contentDescription = "Close reader",
                         tint = palette.ink,
-                        modifier = Modifier.size(19.dp)
+                        modifier = Modifier.size(20.dp)
                     )
                 }
-            }
 
-            IconButton(
-                onClick = onShowJumpDialog,
-                modifier = Modifier
-                    .size(36.dp)
-                    .testTag("reader_jump_page_button")
-            ) {
-                Icon(
-                    imageVector = Icons.Filled.Pin,
-                    contentDescription = "Jump to page number",
-                    tint = palette.ink,
-                    modifier = Modifier.size(19.dp)
-                )
-            }
+                // Single Hamburger Menu button with labeled dropdown tools (including AI Assistant)
+                Box {
+                    Surface(
+                        onClick = { showHamburgerMenu = true },
+                        shape = RoundedCornerShape(10.dp),
+                        color = palette.bg,
+                        modifier = Modifier
+                            .border(1.dp, palette.border, RoundedCornerShape(10.dp))
+                            .testTag("reader_landscape_hamburger_button")
+                    ) {
+                        Column(
+                            modifier = Modifier.padding(horizontal = 8.dp, vertical = 6.dp),
+                            horizontalAlignment = Alignment.CenterHorizontally
+                        ) {
+                            Icon(
+                                imageVector = Icons.Filled.Menu,
+                                contentDescription = "Reader tools menu",
+                                tint = palette.ink,
+                                modifier = Modifier.size(18.dp)
+                            )
+                            Text(
+                                text = "Menu",
+                                style = MaterialTheme.typography.labelSmall,
+                                fontSize = 9.sp,
+                                color = palette.ink
+                            )
+                        }
+                    }
 
-            IconButton(
-                onClick = onToggleBookmark,
-                modifier = Modifier
-                    .size(36.dp)
-                    .testTag("reader_bookmark_button")
-            ) {
-                Icon(
-                    imageVector = if (isBookmarked) Icons.Filled.Bookmark
-                    else Icons.Outlined.BookmarkBorder,
-                    contentDescription = "Bookmark page",
-                    tint = if (isBookmarked) DraftingBrass else palette.ink,
-                    modifier = Modifier.size(19.dp)
-                )
-            }
+                    ReaderToolsHamburgerDropdown(
+                        expanded = showHamburgerMenu,
+                        onDismiss = { showHamburgerMenu = false },
+                        isPdfMode = isPdfMode,
+                        isBookmarked = isBookmarked,
+                        isTwoPageSpreadActive = isTwoPageSpreadActive,
+                        canToggleSpread = canToggleSpread,
+                        palette = palette,
+                        onOpenAiAssistant = onOpenAiAssistant,
+                        onShowPageGrid = onShowPageGrid,
+                        onShowJumpDialog = onShowJumpDialog,
+                        onToggleBookmark = onToggleBookmark,
+                        onShowNoteSheet = onShowNoteSheet,
+                        onShowBookmarksSheet = onShowBookmarksSheet,
+                        onToggleSpreadLayout = onToggleSpreadLayout
+                    )
+                }
 
-            IconButton(
-                onClick = onShowNoteSheet,
-                modifier = Modifier
-                    .size(36.dp)
-                    .testTag("reader_note_button")
-            ) {
-                Icon(
-                    imageVector = Icons.Filled.EditNote,
-                    contentDescription = "Add study review note",
-                    tint = palette.ink,
-                    modifier = Modifier.size(19.dp)
-                )
-            }
-
-            IconButton(
-                onClick = onShowBookmarksSheet,
-                modifier = Modifier
-                    .size(36.dp)
-                    .testTag("reader_toc_button")
-            ) {
-                Icon(
-                    imageVector = Icons.AutoMirrored.Filled.List,
-                    contentDescription = "Contents and bookmarks",
-                    tint = palette.ink,
-                    modifier = Modifier.size(19.dp)
-                )
+                if (canToggleSpread) {
+                    Surface(
+                        onClick = onToggleSpreadLayout,
+                        shape = RoundedCornerShape(8.dp),
+                        color = if (isTwoPageSpreadActive) palette.accent else palette.bg,
+                        modifier = Modifier
+                            .border(1.dp, palette.border, RoundedCornerShape(8.dp))
+                            .testTag("reader_top_spread_toggle")
+                    ) {
+                        Column(
+                            modifier = Modifier.padding(horizontal = 7.dp, vertical = 4.dp),
+                            horizontalAlignment = Alignment.CenterHorizontally
+                        ) {
+                            Icon(
+                                imageVector = Icons.AutoMirrored.Filled.ChromeReaderMode,
+                                contentDescription = "Switch to 1-page portrait",
+                                tint = if (isTwoPageSpreadActive) Color.White else palette.ink,
+                                modifier = Modifier.size(14.dp)
+                            )
+                            Text(
+                                text = if (isTwoPageSpreadActive) "2P" else "1P",
+                                style = MaterialTheme.typography.labelSmall,
+                                fontSize = 10.sp,
+                                color = if (isTwoPageSpreadActive) Color.White else palette.ink
+                            )
+                        }
+                    }
+                }
             }
 
             Surface(
@@ -976,7 +1230,7 @@ fun ReaderLandscapeLeftBarOverlay(
             ) {
                 Box(
                     contentAlignment = Alignment.Center,
-                    modifier = Modifier.size(width = 42.dp, height = 36.dp)
+                    modifier = Modifier.size(width = 42.dp, height = 38.dp)
                 ) {
                     Icon(
                         imageVector = Icons.AutoMirrored.Filled.KeyboardArrowLeft,

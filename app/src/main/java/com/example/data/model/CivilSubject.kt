@@ -24,13 +24,23 @@ enum class CivilSubject(
     val accentColor: Color,
     val defaultCoverArtKey: String
 ) {
+    MATH_PHYSICS(
+        displayName = "Engineering Math, Calculus & Physics",
+        shortName = "Math & Physics",
+        courseCode = "ENGR 101",
+        curriculumYear = 1,
+        semesterLabel = "Year 1 · Foundation STEM",
+        sequenceOrder = 1,
+        accentColor = Color(0xFF3B6E8C),
+        defaultCoverArtKey = "hydraulics"
+    ),
     MECHANICS(
         displayName = "Statics, Dynamics & Mechanics",
         shortName = "Mechanics",
         courseCode = "CE 101",
         curriculumYear = 1,
         semesterLabel = "Year 1 · Sem 1–2",
-        sequenceOrder = 1,
+        sequenceOrder = 2,
         accentColor = Color(0xFFB55D4C),
         defaultCoverArtKey = "structural"
     ),
@@ -40,7 +50,7 @@ enum class CivilSubject(
         courseCode = "CE 201",
         curriculumYear = 2,
         semesterLabel = "Year 2 · Sem 1",
-        sequenceOrder = 2,
+        sequenceOrder = 3,
         accentColor = SubjectSurveyingColor,
         defaultCoverArtKey = "hydraulics"
     ),
@@ -50,9 +60,19 @@ enum class CivilSubject(
         courseCode = "CE 205",
         curriculumYear = 2,
         semesterLabel = "Year 2 · Sem 2",
-        sequenceOrder = 3,
+        sequenceOrder = 4,
         accentColor = SubjectMaterialsColor,
         defaultCoverArtKey = "structural"
+    ),
+    ALLIED_ENGINEERING(
+        displayName = "Mechanical, Electrical & General Eng.",
+        shortName = "Allied Eng.",
+        courseCode = "ENGR 210",
+        curriculumYear = 2,
+        semesterLabel = "Year 2 · Allied Engineering",
+        sequenceOrder = 5,
+        accentColor = Color(0xFF7B5B3A),
+        defaultCoverArtKey = "geotech"
     ),
     STRUCTURAL(
         displayName = "Structural Analysis, Steel & RC",
@@ -60,7 +80,7 @@ enum class CivilSubject(
         courseCode = "CE 301",
         curriculumYear = 3,
         semesterLabel = "Year 3 · Sem 1",
-        sequenceOrder = 4,
+        sequenceOrder = 6,
         accentColor = SubjectStructuralColor,
         defaultCoverArtKey = "structural"
     ),
@@ -70,7 +90,7 @@ enum class CivilSubject(
         courseCode = "CE 302",
         curriculumYear = 3,
         semesterLabel = "Year 3 · Sem 1",
-        sequenceOrder = 5,
+        sequenceOrder = 7,
         accentColor = SubjectHydraulicsColor,
         defaultCoverArtKey = "hydraulics"
     ),
@@ -80,7 +100,7 @@ enum class CivilSubject(
         courseCode = "CE 304",
         curriculumYear = 3,
         semesterLabel = "Year 3 · Sem 2",
-        sequenceOrder = 6,
+        sequenceOrder = 8,
         accentColor = SubjectGeotechColor,
         defaultCoverArtKey = "geotech"
     ),
@@ -90,7 +110,7 @@ enum class CivilSubject(
         courseCode = "CE 306",
         curriculumYear = 3,
         semesterLabel = "Year 3 · Sem 2",
-        sequenceOrder = 7,
+        sequenceOrder = 9,
         accentColor = SubjectTransportationColor,
         defaultCoverArtKey = "geotech"
     ),
@@ -100,7 +120,7 @@ enum class CivilSubject(
         courseCode = "CE 401",
         curriculumYear = 4,
         semesterLabel = "Year 4 · Sem 1",
-        sequenceOrder = 8,
+        sequenceOrder = 10,
         accentColor = Color(0xFF4A8B7C),
         defaultCoverArtKey = "hydraulics"
     ),
@@ -110,8 +130,18 @@ enum class CivilSubject(
         courseCode = "CE 405",
         curriculumYear = 4,
         semesterLabel = "Year 4 · Sem 2",
-        sequenceOrder = 9,
+        sequenceOrder = 11,
         accentColor = SubjectConstructionColor,
+        defaultCoverArtKey = "structural"
+    ),
+    MASTERS_GRADUATE(
+        displayName = "Masters, Seismic, FEM & Bridge Eng.",
+        shortName = "Masters / MSCE",
+        courseCode = "MSCE 501",
+        curriculumYear = 5,
+        semesterLabel = "Masters & Advanced Graduate",
+        sequenceOrder = 12,
+        accentColor = Color(0xFF5D467E),
         defaultCoverArtKey = "structural"
     );
 
@@ -123,6 +153,18 @@ enum class CivilSubject(
         fun inferFromText(text: String): CivilSubject {
             val lower = text.lowercase()
             return when {
+                lower.contains("calculus") || lower.contains("differential equation") ||
+                    lower.contains("linear algebra") || lower.contains("engineering math") ||
+                    lower.contains("higher mathematics") || lower.contains("physics") ||
+                    lower.contains("trigonometry") || lower.contains("numerical method") -> MATH_PHYSICS
+                lower.contains("finite element") || lower.contains("earthquake") ||
+                    lower.contains("seismic") || lower.contains("structural dynamics") ||
+                    lower.contains("prestressed") || lower.contains("advanced structural") ||
+                    lower.contains("graduate") || lower.contains("plates and shells") -> MASTERS_GRADUATE
+                lower.contains("thermodynamics") || lower.contains("electrical") ||
+                    lower.contains("electronics") || lower.contains("circuit") ||
+                    lower.contains("machine design") || lower.contains("mechanical engineering") ||
+                    lower.contains("chemical engineering") || lower.contains("electromagnetism") -> ALLIED_ENGINEERING
                 lower.contains("statics") || lower.contains("dynamics") ||
                     lower.contains("theoretical mechanics") || lower.contains("engineering mechanics") -> MECHANICS
                 lower.contains("survey") || lower.contains("geodesy") || lower.contains("topograph") ||

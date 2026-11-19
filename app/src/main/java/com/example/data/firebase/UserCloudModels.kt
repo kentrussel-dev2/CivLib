@@ -48,7 +48,7 @@ fun scoreBookForProfile(book: BookEntity, profile: UserProfile?): Int {
     val bookSubj = CivilSubject.fromKey(book.subjectKey)
     val chosenSubjs = profile.effectiveSubjectKeys.map { it.uppercase() }.toSet()
     val chosenGoals = profile.effectiveStudyGoals
-    val targetYear = profile.curriculumYear.toInt().coerceIn(1, 4)
+    val targetYear = profile.curriculumYear.toInt().coerceIn(1, 5)
 
     // 1. Direct match with any of the student's chosen subject focuses (highest priority)
     val subjectIndex = profile.effectiveSubjectKeys.indexOfFirst {
@@ -63,8 +63,25 @@ fun scoreBookForProfile(book: BookEntity, profile: UserProfile?): Int {
         score += 45
     }
 
-    // 3. Multi-select Study Goal boosts
+    // 3. Multi-select Study Goal & Program boosts
     val textBlob = "${book.title} ${book.description} ${book.courseCode}".lowercase()
+    val mantraLower = profile.studyMantra.lowercase()
+    if (mantraLower.contains("masters") || mantraLower.contains("msce") || targetYear == 5) {
+        if (bookSubj == CivilSubject.MASTERS_GRADUATE || bookSubj == CivilSubject.STRUCTURAL || bookSubj == CivilSubject.GEOTECHNICAL) {
+            score += 30
+        }
+    }
+    if (mantraLower.contains("mechanical") || mantraLower.contains("electrical") || mantraLower.contains("allied")) {
+        if (bookSubj == CivilSubject.ALLIED_ENGINEERING || bookSubj == CivilSubject.MATH_PHYSICS || bookSubj == CivilSubject.MECHANICS) {
+            score += 30
+        }
+    }
+    if (mantraLower.contains("math") || mantraLower.contains("physics") || mantraLower.contains("stem")) {
+        if (bookSubj == CivilSubject.MATH_PHYSICS || bookSubj == CivilSubject.MECHANICS) {
+            score += 35
+        }
+    }
+
     for (goal in chosenGoals) {
         when {
             goal.contains("Current Semester", ignoreCase = true) -> {
@@ -72,7 +89,7 @@ fun scoreBookForProfile(book: BookEntity, profile: UserProfile?): Int {
                 if (book.isCuratedStarter) score += 15
             }
             goal.contains("Licensure", ignoreCase = true) || goal.contains("Board Exam", ignoreCase = true) -> {
-                if (bookSubj.name in setOf("MECHANICS", "STRENGTH", "STRUCTURAL", "HYDRAULICS", "GEOTECHNICAL", "SURVEYING")) {
+                if (bookSubj.name in setOf("MECHANICS", "MATERIALS", "STRUCTURAL", "HYDRAULICS", "GEOTECHNICAL", "SURVEYING", "MATH_PHYSICS")) {
                     score += 25
                 }
                 if (textBlob.contains("analysis") || textBlob.contains("mechanics") ||
@@ -83,8 +100,18 @@ fun scoreBookForProfile(book: BookEntity, profile: UserProfile?): Int {
                 }
             }
             goal.contains("Structural", ignoreCase = true) || goal.contains("Foundation", ignoreCase = true) -> {
-                if (bookSubj.name in setOf("STRUCTURAL", "GEOTECHNICAL", "STRENGTH", "MATERIALS")) {
+                if (bookSubj.name in setOf("STRUCTURAL", "GEOTECHNICAL", "MATERIALS", "MASTERS_GRADUATE")) {
                     score += 35
+                }
+            }
+            goal.contains("Masters", ignoreCase = true) || goal.contains("Thesis", ignoreCase = true) || goal.contains("FEM", ignoreCase = true) -> {
+                if (bookSubj.name in setOf("MASTERS_GRADUATE", "STRUCTURAL", "GEOTECHNICAL", "MATH_PHYSICS")) {
+                    score += 40
+                }
+            }
+            goal.contains("Math", ignoreCase = true) || goal.contains("Physics", ignoreCase = true) || goal.contains("Allied", ignoreCase = true) -> {
+                if (bookSubj.name in setOf("MATH_PHYSICS", "ALLIED_ENGINEERING", "MECHANICS")) {
+                    score += 40
                 }
             }
             goal.contains("Capstone", ignoreCase = true) || goal.contains("Field", ignoreCase = true) -> {

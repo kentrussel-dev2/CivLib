@@ -64,10 +64,13 @@ class BookRepository(
                 "mediatype:texts AND format:\"Text PDF\" AND -access-restricted-item:true AND (\"engineering mechanics\" OR \"statics\" OR \"theoretical mechanics\")",
                 "mediatype:texts AND format:\"Text PDF\" AND -access-restricted-item:true AND (\"surveying\" OR \"geodesy\" OR \"topographic surveying\")",
                 "mediatype:texts AND format:\"Text PDF\" AND -access-restricted-item:true AND (\"strength of materials\" OR \"mechanics of materials\" OR \"concrete technology\")",
-                "mediatype:texts AND format:\"Text PDF\" AND -access-restricted-item:true AND (\"structural analysis\" OR \"reinforced concrete\" OR \"steel structures\")",
+                "mediatype:texts AND format:\"Text PDF\" AND -access-restricted-item:true AND (\"structural analysis\" OR \"reinforced concrete\" OR \"steel structures\" OR \"bridge engineering\")",
                 "mediatype:texts AND format:\"Text PDF\" AND -access-restricted-item:true AND (\"soil mechanics\" OR \"foundation engineering\" OR \"geotechnical\")",
                 "mediatype:texts AND format:\"Text PDF\" AND -access-restricted-item:true AND (\"open channel hydraulics\" OR \"fluid mechanics\" OR \"engineering hydrology\")",
-                "mediatype:texts AND format:\"Text PDF\" AND -access-restricted-item:true AND (\"highway engineering\" OR \"transportation engineering\" OR \"water supply\" OR \"construction management\")"
+                "mediatype:texts AND format:\"Text PDF\" AND -access-restricted-item:true AND (\"highway engineering\" OR \"transportation engineering\" OR \"water supply\" OR \"construction management\")",
+                "mediatype:texts AND format:\"Text PDF\" AND -access-restricted-item:true AND (\"engineering mathematics\" OR \"differential and integral calculus\" OR \"engineering physics\")",
+                "mediatype:texts AND format:\"Text PDF\" AND -access-restricted-item:true AND (\"finite element\" OR \"earthquake engineering\" OR \"structural dynamics\" OR \"plates and shells\")",
+                "mediatype:texts AND format:\"Text PDF\" AND -access-restricted-item:true AND (\"engineering thermodynamics\" OR \"electrical engineering\" OR \"mechanical engineering\")"
             )
 
             val iaDeferreds = iaSubjects.map { query ->
@@ -84,7 +87,7 @@ class BookRepository(
             val oapenDeferred = async {
                 runCatching {
                     val raw = FreeBookNetworkClient.oapenApi
-                        .searchRaw(query = "civil engineering OR structural engineering OR geotechnical OR hydraulics OR transportation OR environmental engineering", limit = 18)
+                        .searchRaw(query = "civil engineering OR structural engineering OR geotechnical OR hydraulics OR transportation OR environmental engineering OR finite element OR engineering mathematics OR physics", limit = 22)
                         .string()
                     parseDSpaceSearchResults(
                         rawJson = raw,
@@ -99,7 +102,7 @@ class BookRepository(
             val doabDeferred = async {
                 runCatching {
                     val raw = FreeBookNetworkClient.doabApi
-                        .searchRaw(query = "civil engineering OR hydraulics OR concrete OR geotechnical OR construction", limit = 12)
+                        .searchRaw(query = "civil engineering OR hydraulics OR concrete OR geotechnical OR construction OR mechanical engineering OR electrical engineering OR calculus", limit = 16)
                         .string()
                     parseDSpaceSearchResults(
                         rawJson = raw,

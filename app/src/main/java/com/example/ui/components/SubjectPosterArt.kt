@@ -421,6 +421,44 @@ fun CivilSubjectPosterCard(
                 drawRect(Color(0xFF83B8A6), topLeft = Offset(0f, h * 0.72f), size = Size(w, h * 0.12f))
                 drawRect(Color(0xFF1A3E3A), topLeft = Offset(0f, h * 0.84f), size = Size(w, h * 0.16f))
             }
+
+            CivilSubject.MATH_PHYSICS -> {
+                // Deep blueprint indigo with golden harmonic sine wave & integral geometry
+                drawRect(Color(0xFF1F3C5A))
+                drawCircle(Color(0xFFF3E9D2).copy(alpha = 0.22f), radius = w * 0.40f, center = Offset(w * 0.50f, h * 0.44f))
+                val wave = Path().apply {
+                    moveTo(w * 0.10f, h * 0.54f)
+                    cubicTo(w * 0.32f, h * 0.16f, w * 0.68f, h * 0.90f, w * 0.90f, h * 0.46f)
+                }
+                drawPath(wave, Color(0xFFF6CF46), style = Stroke(width = 5.dp.toPx(), cap = StrokeCap.Round))
+                drawLine(Color(0xFFE9DFBE), Offset(w * 0.14f, h * 0.76f), Offset(w * 0.86f, h * 0.76f), 2.5.dp.toPx())
+                drawLine(Color(0xFFE9DFBE), Offset(w * 0.22f, h * 0.20f), Offset(w * 0.22f, h * 0.82f), 2.5.dp.toPx())
+            }
+
+            CivilSubject.ALLIED_ENGINEERING -> {
+                // Warm bronze-copper & dark slate gear/circuit engineering motif
+                drawRect(Color(0xFF5D432C))
+                drawCircle(Color(0xFFEADBC4), radius = w * 0.34f, center = Offset(w * 0.50f, h * 0.48f))
+                drawCircle(Color(0xFF283A52), radius = w * 0.20f, center = Offset(w * 0.50f, h * 0.48f))
+                drawCircle(Color(0xFFF29224), radius = w * 0.08f, center = Offset(w * 0.50f, h * 0.48f))
+                drawLine(Color(0xFFEADBC4), Offset(w * 0.50f, h * 0.08f), Offset(w * 0.50f, h * 0.88f), 3.dp.toPx())
+                drawLine(Color(0xFFEADBC4), Offset(w * 0.12f, h * 0.48f), Offset(w * 0.88f, h * 0.48f), 3.dp.toPx())
+            }
+
+            CivilSubject.MASTERS_GRADUATE -> {
+                // Royal plum-slate & gold finite-element mesh / suspension bridge tower
+                drawRect(Color(0xFF3E2E56))
+                val tower = Path().apply {
+                    moveTo(w * 0.50f, h * 0.14f)
+                    lineTo(w * 0.16f, h * 0.84f)
+                    lineTo(w * 0.84f, h * 0.84f)
+                    close()
+                }
+                drawPath(tower, Color(0xFFF3E9D2), style = Stroke(width = 3.dp.toPx()))
+                drawLine(Color(0xFFF6CF46), Offset(w * 0.50f, h * 0.14f), Offset(w * 0.50f, h * 0.84f), 3.dp.toPx())
+                drawLine(Color(0xFFF6CF46), Offset(w * 0.33f, h * 0.50f), Offset(w * 0.67f, h * 0.50f), 2.5.dp.toPx())
+                drawLine(Color(0xFFF6CF46), Offset(w * 0.24f, h * 0.68f), Offset(w * 0.76f, h * 0.68f), 2.5.dp.toPx())
+            }
         }
     }
 }
