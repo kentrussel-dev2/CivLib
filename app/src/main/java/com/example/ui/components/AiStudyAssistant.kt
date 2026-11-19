@@ -803,10 +803,9 @@ fun AiStudyAssistantFullScreenDialog(
                             onClick = { submitQuestion(prompt) },
                             shape = RoundedCornerShape(999.dp),
                             color = SageOlive.copy(alpha = 0.30f),
-                            modifier = Modifier.border(
+                            border = androidx.compose.foundation.BorderStroke(
                                 1.dp,
-                                SandCream.copy(alpha = 0.25f),
-                                RoundedCornerShape(999.dp)
+                                SandCream.copy(alpha = 0.28f)
                             )
                         ) {
                             Text(
@@ -1057,13 +1056,11 @@ private fun AiChatBubbleCard(
                             },
                             shape = RoundedCornerShape(10.dp),
                             color = if (alreadySaved) SageOlive.copy(alpha = 0.45f) else EspressoBg,
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .border(
-                                    1.dp,
-                                    if (alreadySaved) SageOlive else SandCream.copy(alpha = 0.35f),
-                                    RoundedCornerShape(10.dp)
-                                )
+                            border = androidx.compose.foundation.BorderStroke(
+                                1.dp,
+                                if (alreadySaved) SageOlive else SandCream.copy(alpha = 0.35f)
+                            ),
+                            modifier = Modifier.fillMaxWidth()
                         ) {
                             Row(
                                 modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp),

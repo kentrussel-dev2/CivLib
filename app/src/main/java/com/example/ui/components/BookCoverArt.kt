@@ -71,6 +71,7 @@ fun HardcoverBookThumbnail(
     localCoverPath: String? = null,
     totalPages: Int = 0,
     showTextOverlay: Boolean = true,
+    showRealCover: Boolean = false,
     elevation: Dp = 4.dp,
     aspectRatio: Float? = 0.70f,
     cornerRadius: Dp = 6.dp
@@ -86,7 +87,8 @@ fun HardcoverBookThumbnail(
         )
     }
 
-    val imageModel: Any? = remember(localCoverPath, coverUrl) {
+    val imageModel: Any? = remember(localCoverPath, coverUrl, showRealCover) {
+        if (!showRealCover) return@remember null
         val localFile = localCoverPath?.let { File(it) }
         when {
             localFile != null && localFile.exists() -> localFile
@@ -108,7 +110,7 @@ fun HardcoverBookThumbnail(
             .background(subject.accentColor)
             .border(0.5.dp, Color.Black.copy(alpha = 0.14f), coverShape)
     ) {
-        if (imageModel != null) {
+        if (showRealCover && imageModel != null) {
             SubcomposeAsyncImage(
                 model = imageModel,
                 contentDescription = "$title book cover",

@@ -547,8 +547,8 @@ fun StudentProfileSurveyCard(
                             OutlinedTextField(
                                 value = studentName,
                                 onValueChange = { if (it.length <= 60) onNameChange(it) },
-                                label = { Text("Your Name (e.g. Engr. Alex Rivera)") },
-                                placeholder = { Text("Enter your name or nickname") },
+                                label = { Text("Your Name (e.g. Heart Garcia)") },
+                                placeholder = { Text("e.g. Heart Garcia") },
                                 singleLine = true,
                                 keyboardOptions = KeyboardOptions(
                                     capitalization = KeyboardCapitalization.Words,
@@ -616,13 +616,11 @@ fun StudentProfileSurveyCard(
                                         onClick = { onSelectCourseProgram(prog) },
                                         shape = RoundedCornerShape(12.dp),
                                         color = if (isSelected) EspressoInk else Color.White.copy(alpha = 0.75f),
-                                        modifier = Modifier
-                                            .fillMaxWidth()
-                                            .border(
-                                                width = if (isSelected) 1.5.dp else 1.dp,
-                                                color = if (isSelected) EspressoInk else EspressoInk.copy(alpha = 0.16f),
-                                                shape = RoundedCornerShape(12.dp)
-                                            )
+                                        border = androidx.compose.foundation.BorderStroke(
+                                            width = if (isSelected) 1.5.dp else 1.dp,
+                                            color = if (isSelected) EspressoInk else EspressoInk.copy(alpha = 0.16f)
+                                        ),
+                                        modifier = Modifier.fillMaxWidth()
                                     ) {
                                         Row(
                                             modifier = Modifier
@@ -766,15 +764,13 @@ fun StudentProfileSurveyCard(
                                                 onClick = { onToggleSubjectKey(subject.name) },
                                                 shape = RoundedCornerShape(14.dp),
                                                 color = if (isSelected) EspressoInk else Color.White.copy(alpha = 0.72f),
-                                                modifier = Modifier
-                                                    .weight(1f)
-                                                    .border(
-                                                        width = if (isSelected) 2.dp else if (isYearMatch) 1.5.dp else 1.dp,
-                                                        color = if (isSelected) EspressoInk
-                                                        else if (isYearMatch) SageOlive
-                                                        else EspressoInk.copy(alpha = 0.16f),
-                                                        shape = RoundedCornerShape(14.dp)
-                                                    )
+                                                border = androidx.compose.foundation.BorderStroke(
+                                                    width = if (isSelected) 2.dp else if (isYearMatch) 1.5.dp else 1.dp,
+                                                    color = if (isSelected) EspressoInk
+                                                    else if (isYearMatch) SageOlive
+                                                    else EspressoInk.copy(alpha = 0.16f)
+                                                ),
+                                                modifier = Modifier.weight(1f)
                                             ) {
                                                 Column(
                                                     modifier = Modifier.padding(horizontal = 12.dp, vertical = 10.dp)
@@ -978,13 +974,11 @@ private fun SurveyChoiceButton(
         onClick = onClick,
         shape = RoundedCornerShape(16.dp),
         color = if (selected) EspressoInk else Color.White.copy(alpha = 0.75f),
-        modifier = Modifier
-            .fillMaxWidth()
-            .border(
-                width = if (selected) 2.dp else 1.dp,
-                color = if (selected) EspressoInk else EspressoInk.copy(alpha = 0.16f),
-                shape = RoundedCornerShape(16.dp)
-            )
+        border = androidx.compose.foundation.BorderStroke(
+            width = if (selected) 2.dp else 1.dp,
+            color = if (selected) EspressoInk else EspressoInk.copy(alpha = 0.16f)
+        ),
+        modifier = Modifier.fillMaxWidth()
     ) {
         Row(
             modifier = Modifier

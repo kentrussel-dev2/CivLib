@@ -448,57 +448,119 @@ fun BookReaderScreen(
                 }
             }
         } else {
-            InteractiveBookPageTurner(
-                currentPageIndex = currentIndex.coerceIn(0, effectivePageCount - 1),
-                pageCount = effectivePageCount,
-                paperColor = palette.bg,
-                spineBorderColor = palette.border,
-                hardcoverBoardColor = palette.hardcoverBoard,
-                allowHorizontalSwipe = zoomScale <= 1.05f,
-                onPageChanged = { newIdx ->
-                    currentIndex = newIdx.coerceIn(0, effectivePageCount - 1)
-                },
-                modifier = Modifier
-                    .fillMaxSize()
-                    .statusBarsPadding()
-                    .navigationBarsPadding()
-                    .padding(horizontal = 8.dp, vertical = 6.dp)
-            ) { pageIdx ->
-                if (isPdfMode) {
-                    RealPdfBookPageView(
-                        session = pdfSession,
-                        sessionReadyVersion = sessionReadyVersion,
-                        pageIndex = pageIdx,
-                        totalPages = effectivePageCount,
-                        paperTheme = preferences.paperTheme,
-                        backgroundColor = palette.bg,
-                        accentColor = palette.accent,
-                        subtleColor = palette.subtle,
-                        cropMargins = preferences.cropPdfMargins,
-                        zoomScale = if (pageIdx == currentIndex) zoomScale else 1f,
-                        panOffset = if (pageIdx == currentIndex) panOffset else Offset.Zero,
-                        isActivePage = pageIdx == currentIndex,
-                        onZoomPanChange = { s, o ->
-                            zoomScale = s
-                            panOffset = o
-                        },
-                        onTapPreviousPage = {
-                            if (currentIndex > 0) currentIndex -= 1
-                        },
-                        onTapNextPage = {
-                            if (currentIndex < effectivePageCount - 1) currentIndex += 1
-                        },
-                        onCenterTap = { showChrome = !showChrome }
-                    )
-                } else {
-                    val page = pages[pageIdx.coerceIn(0, pages.lastIndex)]
-                    TextBookPageContent(
-                        page = page,
-                        totalPages = pages.size,
-                        fontSizeSp = preferences.fontSizeSp,
+            // Portrait 1-Page Mode: Column auto-adjusts page viewport when Top & Bottom bars open/close
+            // so Trim mode never gets its top or bottom cut off by the navigation bars.
+            Column(modifier = Modifier.fillMaxSize()) {
+                AnimatedVisibility(
+                    visible = showChrome && !showOpeningAnimation,
+                    enter = fadeIn() + slideInVertically { -it },
+                    exit = fadeOut() + slideOutVertically { -it }
+                ) {
+                    ReaderTopBarOverlay(
+                        book = book,
+                        currentPageLabel = topBarPageLabel,
+                        isPdfMode = isPdfMode,
+                        isBookmarked = activeBookmark != null,
+                        isTwoPageSpreadActive = false,
+                        canToggleSpread = effectivePageCount >= 2,
                         palette = palette,
-                        existingNote = bookmarks.firstOrNull { it.pageNumber == page.pageNumber }?.noteText,
-                        onCenterTap = { showChrome = !showChrome }
+                        onBack = onBack,
+                        onToggleSpreadLayout = toggleSpreadMode,
+                        onShowPageGrid = { showPageGridSheet = true },
+                        onShowJumpDialog = { showGoToPageDialog = true },
+                        onToggleBookmark = { onToggleBookmark(currentPageNumber, currentChapterLabel) },
+                        onShowNoteSheet = { showNoteSheet = true },
+                        onShowBookmarksSheet = { showBookmarksDrawer = true },
+                        onOpenAiAssistant = { showAiAssistantDialog = true }
+                    )
+                }
+
+                InteractiveBookPageTurner(
+                    currentPageIndex = currentIndex.coerceIn(0, effectivePageCount - 1),
+                    pageCount = effectivePageCount,
+                    paperColor = palette.bg,
+                    spineBorderColor = palette.border,
+                    hardcoverBoardColor = palette.hardcoverBoard,
+                    allowHorizontalSwipe = zoomScale <= 1.05f,
+                    onPageChanged = { newIdx ->
+                        currentIndex = newIdx.coerceIn(0, effectivePageCount - 1)
+                    },
+                    modifier = Modifier
+                        .weight(1f)
+                        .fillMaxWidth()
+                        .then(
+                            if (!showChrome) Modifier.statusBarsPadding().navigationBarsPadding()
+                            else Modifier
+                        )
+                        .padding(horizontal = 8.dp, vertical = 6.dp)
+                ) { pageIdx ->
+                    if (isPdfMode) {
+                        RealPdfBookPageView(
+                            session = pdfSession,
+                            sessionReadyVersion = sessionReadyVersion,
+                            pageIndex = pageIdx,
+                            totalPages = effectivePageCount,
+                            paperTheme = preferences.paperTheme,
+                            backgroundColor = palette.bg,
+                            accentColor = palette.accent,
+                            subtleColor = palette.subtle,
+                            cropMargins = preferences.cropPdfMargins,
+                            zoomScale = if (pageIdx == currentIndex) zoomScale else 1f,
+                            panOffset = if (pageIdx == currentIndex) panOffset else Offset.Zero,
+                            isActivePage = pageIdx == currentIndex,
+                            onZoomPanChange = { s, o ->
+                                zoomScale = s
+                                panOffset = o
+                            },
+                            onTapPreviousPage = {
+                                if (currentIndex > 0) currentIndex -= 1
+                            },
+                            onTapNextPage = {
+                                if (currentIndex < effectivePageCount - 1) currentIndex += 1
+                            },
+                            onCenterTap = { showChrome = !showChrome }
+                        )
+                    } else {
+                        val page = pages[pageIdx.coerceIn(0, pages.lastIndex)]
+                        TextBookPageContent(
+                            page = page,
+                            totalPages = pages.size,
+                            fontSizeSp = preferences.fontSizeSp,
+                            palette = palette,
+                            existingNote = bookmarks.firstOrNull { it.pageNumber == page.pageNumber }?.noteText,
+                            onCenterTap = { showChrome = !showChrome }
+                        )
+                    }
+                }
+
+                AnimatedVisibility(
+                    visible = showChrome && !showOpeningAnimation,
+                    enter = fadeIn() + slideInVertically { it },
+                    exit = fadeOut() + slideOutVertically { it }
+                ) {
+                    ReaderBottomBarOverlay(
+                        currentIndex = currentIndex,
+                        effectivePageCount = effectivePageCount,
+                        isPdfMode = isPdfMode,
+                        isTwoPageSpreadActive = false,
+                        preferences = preferences,
+                        pdfSession = pdfSession,
+                        palette = palette,
+                        onPrevious = {
+                            currentIndex = (currentIndex - spreadPageStep).coerceAtLeast(0)
+                        },
+                        onNext = {
+                            currentIndex = (currentIndex + spreadPageStep).coerceAtMost(effectivePageCount - 1)
+                        },
+                        onScrubToIndex = { targetIdx ->
+                            currentIndex = targetIdx.coerceIn(0, effectivePageCount - 1)
+                        },
+                        onSelectPaperTheme = onSelectPaperTheme,
+                        onToggleSpreadLayout = toggleSpreadMode,
+                        onToggleCropMargins = {
+                            onToggleCropPdfMargins(!preferences.cropPdfMargins)
+                        },
+                        onAdjustFontSize = onAdjustFontSize
                     )
                 }
             }
@@ -540,66 +602,6 @@ fun BookReaderScreen(
                         color = Color.White
                     )
                 }
-            }
-        }
-
-        // Portrait 1-Page Mode: Top and Bottom Reader Bars stay in their exact portrait positions
-        if (!useTwoPageSpread) {
-            AnimatedVisibility(
-                visible = showChrome && !showOpeningAnimation,
-                enter = fadeIn() + slideInVertically { -it },
-                exit = fadeOut() + slideOutVertically { -it },
-                modifier = Modifier.align(Alignment.TopCenter)
-            ) {
-                ReaderTopBarOverlay(
-                    book = book,
-                    currentPageLabel = topBarPageLabel,
-                    isPdfMode = isPdfMode,
-                    isBookmarked = activeBookmark != null,
-                    isTwoPageSpreadActive = false,
-                    canToggleSpread = effectivePageCount >= 2,
-                    palette = palette,
-                    onBack = onBack,
-                    onToggleSpreadLayout = toggleSpreadMode,
-                    onShowPageGrid = { showPageGridSheet = true },
-                    onShowJumpDialog = { showGoToPageDialog = true },
-                    onToggleBookmark = { onToggleBookmark(currentPageNumber, currentChapterLabel) },
-                    onShowNoteSheet = { showNoteSheet = true },
-                    onShowBookmarksSheet = { showBookmarksDrawer = true },
-                    onOpenAiAssistant = { showAiAssistantDialog = true }
-                )
-            }
-
-            AnimatedVisibility(
-                visible = showChrome && !showOpeningAnimation,
-                enter = fadeIn() + slideInVertically { it },
-                exit = fadeOut() + slideOutVertically { it },
-                modifier = Modifier.align(Alignment.BottomCenter)
-            ) {
-                ReaderBottomBarOverlay(
-                    currentIndex = currentIndex,
-                    effectivePageCount = effectivePageCount,
-                    isPdfMode = isPdfMode,
-                    isTwoPageSpreadActive = false,
-                    preferences = preferences,
-                    pdfSession = pdfSession,
-                    palette = palette,
-                    onPrevious = {
-                        currentIndex = (currentIndex - spreadPageStep).coerceAtLeast(0)
-                    },
-                    onNext = {
-                        currentIndex = (currentIndex + spreadPageStep).coerceAtMost(effectivePageCount - 1)
-                    },
-                    onScrubToIndex = { targetIdx ->
-                        currentIndex = targetIdx.coerceIn(0, effectivePageCount - 1)
-                    },
-                    onSelectPaperTheme = onSelectPaperTheme,
-                    onToggleSpreadLayout = toggleSpreadMode,
-                    onToggleCropMargins = {
-                        onToggleCropPdfMargins(!preferences.cropPdfMargins)
-                    },
-                    onAdjustFontSize = onAdjustFontSize
-                )
             }
         }
 

@@ -282,9 +282,8 @@ fun SearchDiscoverScreen(
                                 },
                                 shape = RoundedCornerShape(5.dp),
                                 color = MaterialTheme.colorScheme.surface,
-                                modifier = Modifier
-                                    .border(1.dp, MaterialTheme.colorScheme.outline, RoundedCornerShape(5.dp))
-                                    .testTag("quick_search_chip_$chipQuery")
+                                border = androidx.compose.foundation.BorderStroke(1.dp, MaterialTheme.colorScheme.outline),
+                                modifier = Modifier.testTag("quick_search_chip_$chipQuery")
                             ) {
                                 Text(
                                     text = chipQuery,

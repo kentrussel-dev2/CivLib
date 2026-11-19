@@ -222,18 +222,11 @@ fun ReaderToolsHamburgerDropdown(
                 )
             },
             text = {
-                Column {
-                    Text(
-                        text = "AI Study Assistant",
-                        fontWeight = FontWeight.Bold,
-                        color = palette.ink
-                    )
-                    Text(
-                        text = "Explain page, find topics in book, or save notes",
-                        style = MaterialTheme.typography.labelSmall,
-                        color = palette.subtle
-                    )
-                }
+                Text(
+                    text = "AI Study Assistant",
+                    fontWeight = FontWeight.Bold,
+                    color = palette.ink
+                )
             },
             onClick = {
                 onDismiss()
@@ -253,14 +246,7 @@ fun ReaderToolsHamburgerDropdown(
                 )
             },
             text = {
-                Column {
-                    Text("Book Pages Preview", fontWeight = FontWeight.SemiBold, color = palette.ink)
-                    Text(
-                        text = "Browse visual thumbnails of all pages",
-                        style = MaterialTheme.typography.labelSmall,
-                        color = palette.subtle
-                    )
-                }
+                Text("Book Pages Preview", fontWeight = FontWeight.SemiBold, color = palette.ink)
             },
             onClick = {
                 onDismiss()
@@ -278,14 +264,7 @@ fun ReaderToolsHamburgerDropdown(
                 )
             },
             text = {
-                Column {
-                    Text("Jump to Page Number", fontWeight = FontWeight.SemiBold, color = palette.ink)
-                    Text(
-                        text = "Type a page number to flip there",
-                        style = MaterialTheme.typography.labelSmall,
-                        color = palette.subtle
-                    )
-                }
+                Text("Jump to Page Number", fontWeight = FontWeight.SemiBold, color = palette.ink)
             },
             onClick = {
                 onDismiss()
@@ -303,18 +282,11 @@ fun ReaderToolsHamburgerDropdown(
                 )
             },
             text = {
-                Column {
-                    Text(
-                        text = if (isBookmarked) "Remove Page Bookmark" else "Bookmark This Page",
-                        fontWeight = FontWeight.SemiBold,
-                        color = palette.ink
-                    )
-                    Text(
-                        text = "Pin page to your personal bookmarks",
-                        style = MaterialTheme.typography.labelSmall,
-                        color = palette.subtle
-                    )
-                }
+                Text(
+                    text = if (isBookmarked) "Remove Page Bookmark" else "Bookmark This Page",
+                    fontWeight = FontWeight.SemiBold,
+                    color = palette.ink
+                )
             },
             onClick = {
                 onDismiss()
@@ -332,14 +304,7 @@ fun ReaderToolsHamburgerDropdown(
                 )
             },
             text = {
-                Column {
-                    Text("Add / Edit Study Note", fontWeight = FontWeight.SemiBold, color = palette.ink)
-                    Text(
-                        text = "Write formula or exam note for this page",
-                        style = MaterialTheme.typography.labelSmall,
-                        color = palette.subtle
-                    )
-                }
+                Text("Add / Edit Study Note", fontWeight = FontWeight.SemiBold, color = palette.ink)
             },
             onClick = {
                 onDismiss()
@@ -357,14 +322,7 @@ fun ReaderToolsHamburgerDropdown(
                 )
             },
             text = {
-                Column {
-                    Text("Saved Bookmarks & Notes", fontWeight = FontWeight.SemiBold, color = palette.ink)
-                    Text(
-                        text = "View all bookmarked pages in this book",
-                        style = MaterialTheme.typography.labelSmall,
-                        color = palette.subtle
-                    )
-                }
+                Text("Saved Bookmarks & Notes", fontWeight = FontWeight.SemiBold, color = palette.ink)
             },
             onClick = {
                 onDismiss()
@@ -384,20 +342,12 @@ fun ReaderToolsHamburgerDropdown(
                     )
                 },
                 text = {
-                    Column {
-                        Text(
-                            text = if (isTwoPageSpreadActive) "Switch to 1-Page Portrait"
-                            else "Switch to 2-Page Landscape",
-                            fontWeight = FontWeight.SemiBold,
-                            color = palette.ink
-                        )
-                        Text(
-                            text = if (isTwoPageSpreadActive) "Return to single-page portrait view"
-                            else "Open two-page landscape textbook spread",
-                            style = MaterialTheme.typography.labelSmall,
-                            color = palette.subtle
-                        )
-                    }
+                    Text(
+                        text = if (isTwoPageSpreadActive) "Switch to 1-Page Portrait"
+                        else "Switch to 2-Page Landscape",
+                        fontWeight = FontWeight.SemiBold,
+                        color = palette.ink
+                    )
                 },
                 onClick = {
                     onDismiss()
@@ -561,9 +511,8 @@ fun ReaderBottomBarOverlay(
                                 onClick = { onSelectPaperTheme(theme) },
                                 shape = RoundedCornerShape(8.dp),
                                 color = if (selected) palette.accent else palette.bg,
-                                modifier = Modifier
-                                    .border(1.dp, palette.border, RoundedCornerShape(8.dp))
-                                    .testTag("paper_theme_${theme.name.lowercase()}")
+                                border = androidx.compose.foundation.BorderStroke(1.dp, palette.border),
+                                modifier = Modifier.testTag("paper_theme_${theme.name.lowercase()}")
                             ) {
                                 Text(
                                     text = when (theme) {
@@ -589,9 +538,8 @@ fun ReaderBottomBarOverlay(
                                 onClick = onToggleSpreadLayout,
                                 shape = RoundedCornerShape(8.dp),
                                 color = if (isTwoPageSpreadActive) palette.accent else palette.bg,
-                                modifier = Modifier
-                                    .border(1.dp, palette.border, RoundedCornerShape(8.dp))
-                                    .testTag("reader_spread_toggle")
+                                border = androidx.compose.foundation.BorderStroke(1.dp, palette.border),
+                                modifier = Modifier.testTag("reader_spread_toggle")
                             ) {
                                 Row(
                                     modifier = Modifier.padding(horizontal = 8.dp, vertical = 6.dp),
@@ -618,9 +566,8 @@ fun ReaderBottomBarOverlay(
                                 onClick = onToggleCropMargins,
                                 shape = RoundedCornerShape(8.dp),
                                 color = if (preferences.cropPdfMargins) palette.accent else palette.bg,
-                                modifier = Modifier
-                                    .border(1.dp, palette.border, RoundedCornerShape(8.dp))
-                                    .testTag("reader_crop_margins_toggle")
+                                border = androidx.compose.foundation.BorderStroke(1.dp, palette.border),
+                                modifier = Modifier.testTag("reader_crop_margins_toggle")
                             ) {
                                 Row(
                                     modifier = Modifier.padding(horizontal = 8.dp, vertical = 6.dp),
@@ -645,7 +592,7 @@ fun ReaderBottomBarOverlay(
                                 onClick = { onAdjustFontSize(-1.5f) },
                                 shape = RoundedCornerShape(8.dp),
                                 color = palette.bg,
-                                modifier = Modifier.border(1.dp, palette.border, RoundedCornerShape(8.dp))
+                                border = androidx.compose.foundation.BorderStroke(1.dp, palette.border)
                             ) {
                                 Text(
                                     text = "A-",
@@ -658,7 +605,7 @@ fun ReaderBottomBarOverlay(
                                 onClick = { onAdjustFontSize(+1.5f) },
                                 shape = RoundedCornerShape(8.dp),
                                 color = palette.bg,
-                                modifier = Modifier.border(1.dp, palette.border, RoundedCornerShape(8.dp))
+                                border = androidx.compose.foundation.BorderStroke(1.dp, palette.border)
                             ) {
                                 Text(
                                     text = "A+",
@@ -1148,9 +1095,8 @@ fun ReaderLandscapeLeftBarOverlay(
                         onClick = { showHamburgerMenu = true },
                         shape = RoundedCornerShape(10.dp),
                         color = palette.bg,
-                        modifier = Modifier
-                            .border(1.dp, palette.border, RoundedCornerShape(10.dp))
-                            .testTag("reader_landscape_hamburger_button")
+                        border = androidx.compose.foundation.BorderStroke(1.dp, palette.border),
+                        modifier = Modifier.testTag("reader_landscape_hamburger_button")
                     ) {
                         Column(
                             modifier = Modifier.padding(horizontal = 8.dp, vertical = 6.dp),
@@ -1194,9 +1140,8 @@ fun ReaderLandscapeLeftBarOverlay(
                         onClick = onToggleSpreadLayout,
                         shape = RoundedCornerShape(8.dp),
                         color = if (isTwoPageSpreadActive) palette.accent else palette.bg,
-                        modifier = Modifier
-                            .border(1.dp, palette.border, RoundedCornerShape(8.dp))
-                            .testTag("reader_top_spread_toggle")
+                        border = androidx.compose.foundation.BorderStroke(1.dp, palette.border),
+                        modifier = Modifier.testTag("reader_top_spread_toggle")
                     ) {
                         Column(
                             modifier = Modifier.padding(horizontal = 7.dp, vertical = 4.dp),
@@ -1224,9 +1169,8 @@ fun ReaderLandscapeLeftBarOverlay(
                 enabled = canGoPrevious,
                 shape = RoundedCornerShape(10.dp),
                 color = if (canGoPrevious) palette.bg else palette.bg.copy(alpha = 0.45f),
-                modifier = Modifier
-                    .border(1.dp, palette.border, RoundedCornerShape(10.dp))
-                    .testTag("reader_prev_page_button")
+                border = androidx.compose.foundation.BorderStroke(1.dp, palette.border),
+                modifier = Modifier.testTag("reader_prev_page_button")
             ) {
                 Box(
                     contentAlignment = Alignment.Center,
@@ -1286,9 +1230,8 @@ fun ReaderLandscapeRightBarOverlay(
                 onClick = onShowJumpDialog,
                 shape = RoundedCornerShape(8.dp),
                 color = palette.bg,
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .border(1.dp, palette.border, RoundedCornerShape(8.dp))
+                border = androidx.compose.foundation.BorderStroke(1.dp, palette.border),
+                modifier = Modifier.fillMaxWidth()
             ) {
                 Column(
                     modifier = Modifier.padding(vertical = 5.dp, horizontal = 2.dp),
@@ -1324,9 +1267,9 @@ fun ReaderLandscapeRightBarOverlay(
                         onClick = { onSelectPaperTheme(theme) },
                         shape = RoundedCornerShape(8.dp),
                         color = if (selected) palette.accent else palette.bg,
+                        border = androidx.compose.foundation.BorderStroke(1.dp, palette.border),
                         modifier = Modifier
                             .fillMaxWidth()
-                            .border(1.dp, palette.border, RoundedCornerShape(8.dp))
                             .testTag("paper_theme_${theme.name.lowercase()}")
                     ) {
                         Box(
@@ -1354,9 +1297,9 @@ fun ReaderLandscapeRightBarOverlay(
                     onClick = onToggleCropMargins,
                     shape = RoundedCornerShape(8.dp),
                     color = if (preferences.cropPdfMargins) palette.accent else palette.bg,
+                    border = androidx.compose.foundation.BorderStroke(1.dp, palette.border),
                     modifier = Modifier
                         .fillMaxWidth()
-                        .border(1.dp, palette.border, RoundedCornerShape(8.dp))
                         .testTag("reader_crop_margins_toggle")
                 ) {
                     Column(
@@ -1386,9 +1329,8 @@ fun ReaderLandscapeRightBarOverlay(
                         onClick = { onAdjustFontSize(+1.5f) },
                         shape = RoundedCornerShape(8.dp),
                         color = palette.bg,
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .border(1.dp, palette.border, RoundedCornerShape(8.dp))
+                        border = androidx.compose.foundation.BorderStroke(1.dp, palette.border),
+                        modifier = Modifier.fillMaxWidth()
                     ) {
                         Box(contentAlignment = Alignment.Center, modifier = Modifier.padding(vertical = 5.dp)) {
                             Text("A+", style = MaterialTheme.typography.labelSmall, color = palette.ink)
@@ -1398,9 +1340,8 @@ fun ReaderLandscapeRightBarOverlay(
                         onClick = { onAdjustFontSize(-1.5f) },
                         shape = RoundedCornerShape(8.dp),
                         color = palette.bg,
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .border(1.dp, palette.border, RoundedCornerShape(8.dp))
+                        border = androidx.compose.foundation.BorderStroke(1.dp, palette.border),
+                        modifier = Modifier.fillMaxWidth()
                     ) {
                         Box(contentAlignment = Alignment.Center, modifier = Modifier.padding(vertical = 5.dp)) {
                             Text("A-", style = MaterialTheme.typography.labelSmall, color = palette.ink)
@@ -1415,9 +1356,9 @@ fun ReaderLandscapeRightBarOverlay(
                 enabled = canGoNext,
                 shape = RoundedCornerShape(10.dp),
                 color = if (canGoNext) palette.bg else palette.bg.copy(alpha = 0.45f),
+                border = androidx.compose.foundation.BorderStroke(1.dp, palette.border),
                 modifier = Modifier
                     .fillMaxWidth()
-                    .border(1.dp, palette.border, RoundedCornerShape(10.dp))
                     .testTag("reader_next_page_button")
             ) {
                 Box(

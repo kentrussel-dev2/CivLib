@@ -146,36 +146,45 @@ fun CivLibApp(
     var localSessionActive by remember {
         mutableStateOf(cloudRepo.isLocalOnboardingCompleted())
     }
+    var showLaunchIntro by remember { mutableStateOf(true) }
 
     val user = currentUser
-    if (user == null && !localSessionActive) {
-        AuthScreen(
-            onAuthSuccess = { localSessionActive = true },
-            onSurveyCompleted = { survey ->
-                scope.launch {
-                    val uid = auth?.currentUser?.uid ?: "local_student"
-                    cloudRepo.saveProfileOnboardingSurvey(
-                        userId = uid,
-                        displayName = survey.displayName,
-                        email = survey.email,
-                        curriculumYear = survey.curriculumYear,
-                        primarySubjectKey = survey.primarySubjectKey,
-                        studyGoal = survey.studyGoal,
-                        studyMantra = survey.studyMantra,
-                        selectedSubjectKeys = survey.selectedSubjectKeys,
-                        selectedGoals = survey.selectedGoals
-                    )
-                    localSessionActive = true
+    Box(modifier = Modifier.fillMaxSize()) {
+        if (user == null && !localSessionActive) {
+            AuthScreen(
+                onAuthSuccess = { localSessionActive = true },
+                onSurveyCompleted = { survey ->
+                    scope.launch {
+                        val uid = auth?.currentUser?.uid ?: "local_student"
+                        cloudRepo.saveProfileOnboardingSurvey(
+                            userId = uid,
+                            displayName = survey.displayName,
+                            email = survey.email,
+                            curriculumYear = survey.curriculumYear,
+                            primarySubjectKey = survey.primarySubjectKey,
+                            studyGoal = survey.studyGoal,
+                            studyMantra = survey.studyMantra,
+                            selectedSubjectKeys = survey.selectedSubjectKeys,
+                            selectedGoals = survey.selectedGoals
+                        )
+                        localSessionActive = true
+                    }
                 }
+            )
+        } else {
+            val sessionKey = user?.uid ?: "local_student"
+            key(sessionKey) {
+                AuthenticatedCivLibApp(
+                    currentUser = user,
+                    incomingPdfUri = incomingPdfUri,
+                    onConsumeIncomingPdf = onConsumeIncomingPdf
+                )
             }
-        )
-    } else {
-        val sessionKey = user?.uid ?: "local_student"
-        key(sessionKey) {
-            AuthenticatedCivLibApp(
-                currentUser = user,
-                incomingPdfUri = incomingPdfUri,
-                onConsumeIncomingPdf = onConsumeIncomingPdf
+        }
+
+        if (showLaunchIntro) {
+            com.example.ui.components.AppIntroSplashOverlay(
+                onFinished = { showLaunchIntro = false }
             )
         }
     }

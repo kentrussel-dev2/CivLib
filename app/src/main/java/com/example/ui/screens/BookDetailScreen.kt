@@ -102,6 +102,11 @@ fun BookDetailScreen(
     }
 
     var showAiAssistant by rememberSaveable { mutableStateOf(false) }
+    var showRealCoverOnShowcase by rememberSaveable(book.id) { mutableStateOf(false) }
+    val hasRealCoverSource = remember(book.localCoverPath, book.coverUrl) {
+        val localExists = book.localCoverPath?.let { java.io.File(it).exists() } == true
+        localExists || !book.coverUrl.isNullOrBlank()
+    }
     val subject = remember(book.subjectKey) { CivilSubject.fromKey(book.subjectKey) }
     val sourceLabel = remember(book.sourceType) {
         BookSourceType.entries.firstOrNull { it.name == book.sourceType }?.displayLabel
@@ -181,19 +186,42 @@ fun BookDetailScreen(
                     modifier = Modifier.fillMaxWidth(),
                     verticalAlignment = Alignment.Top
                 ) {
-                    HardcoverBookThumbnail(
-                        title = book.title,
-                        author = book.author,
-                        courseCode = book.courseCode,
-                        subject = subject,
-                        coverUrl = book.coverUrl,
-                        localCoverPath = book.localCoverPath,
-                        coverArtKey = book.coverArtKey,
-                        totalPages = book.totalPages,
-                        isOfflineAvailable = book.isOfflineAvailable,
-                        elevation = 6.dp,
+                    Column(
+                        horizontalAlignment = Alignment.CenterHorizontally,
                         modifier = Modifier.width(134.dp)
-                    )
+                    ) {
+                        HardcoverBookThumbnail(
+                            title = book.title,
+                            author = book.author,
+                            courseCode = book.courseCode,
+                            subject = subject,
+                            coverUrl = book.coverUrl,
+                            localCoverPath = book.localCoverPath,
+                            coverArtKey = book.coverArtKey,
+                            totalPages = book.totalPages,
+                            isOfflineAvailable = book.isOfflineAvailable,
+                            showRealCover = showRealCoverOnShowcase,
+                            elevation = 6.dp,
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .clickable {
+                                    if (hasRealCoverSource) {
+                                        showRealCoverOnShowcase = !showRealCoverOnShowcase
+                                    }
+                                }
+                                .testTag("showcase_book_cover_toggle")
+                        )
+                        if (hasRealCoverSource) {
+                            Spacer(modifier = Modifier.height(6.dp))
+                            Text(
+                                text = if (showRealCoverOnShowcase) "Tap for CivLib cover" else "Tap for real cover",
+                                style = MaterialTheme.typography.labelSmall,
+                                fontSize = 10.sp,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                textAlign = TextAlign.Center
+                            )
+                        }
+                    }
                     Spacer(modifier = Modifier.width(20.dp))
                     Column(modifier = Modifier.weight(1f)) {
                         Text(
