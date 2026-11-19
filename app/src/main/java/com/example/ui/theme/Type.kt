@@ -8,19 +8,33 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.sp
 import com.example.R
 
-val NewsreaderFontFamily = FontFamily(
-    Font(R.font.newsreader, FontWeight.Normal),
-    Font(R.font.newsreader, FontWeight.Medium),
-    Font(R.font.newsreader, FontWeight.SemiBold),
-    Font(R.font.newsreader, FontWeight.Bold)
+// Refined Luxury Editorial Display Serif for Screen Headers, Student Name & Section Titles
+val PlayfairDisplayFontFamily = FontFamily(
+    Font(R.font.playfair_display, FontWeight.Normal),
+    Font(R.font.playfair_display, FontWeight.Medium),
+    Font(R.font.playfair_display, FontWeight.SemiBold),
+    Font(R.font.playfair_display, FontWeight.Bold)
 )
 
-val PlusJakartaFontFamily = FontFamily(
-    Font(R.font.plus_jakarta_sans, FontWeight.Normal),
-    Font(R.font.plus_jakarta_sans, FontWeight.Medium),
-    Font(R.font.plus_jakarta_sans, FontWeight.SemiBold),
-    Font(R.font.plus_jakarta_sans, FontWeight.Bold)
+// Warm Literary Book Serif for Book Titles, Descriptions & Long-Form Reading
+val LoraFontFamily = FontFamily(
+    Font(R.font.lora, FontWeight.Normal),
+    Font(R.font.lora, FontWeight.Medium),
+    Font(R.font.lora, FontWeight.SemiBold),
+    Font(R.font.lora, FontWeight.Bold)
 )
+
+// Crisp Modern Geometric-Humanist Sans for Navigation, Pills, Search & Metadata
+val DmSansFontFamily = FontFamily(
+    Font(R.font.dm_sans, FontWeight.Normal),
+    Font(R.font.dm_sans, FontWeight.Medium),
+    Font(R.font.dm_sans, FontWeight.SemiBold),
+    Font(R.font.dm_sans, FontWeight.Bold)
+)
+
+// Keep existing semantic aliases pointing to the upgraded editorial type pairing
+val NewsreaderFontFamily = LoraFontFamily
+val PlusJakartaFontFamily = DmSansFontFamily
 
 val JetBrainsMonoFontFamily = FontFamily(
     Font(R.font.jetbrains_mono, FontWeight.Normal),
@@ -28,82 +42,80 @@ val JetBrainsMonoFontFamily = FontFamily(
     Font(R.font.jetbrains_mono, FontWeight.Bold)
 )
 
-// Editorial Swiss / Architectural Monograph Typography Scale
+// Editorial Architectural Monograph Typography Scale
 val AppTypography = Typography(
     displayLarge = TextStyle(
-        fontFamily = NewsreaderFontFamily,
-        fontWeight = FontWeight.SemiBold,
-        fontSize = 38.sp,
+        fontFamily = PlayfairDisplayFontFamily,
+        fontWeight = FontWeight.Bold,
+        fontSize = 36.sp,
         lineHeight = 42.sp,
-        letterSpacing = (-0.8).sp
-    ),
-    displayMedium = TextStyle(
-        fontFamily = NewsreaderFontFamily,
-        fontWeight = FontWeight.SemiBold,
-        fontSize = 32.sp,
-        lineHeight = 36.sp,
         letterSpacing = (-0.5).sp
     ),
-    headlineLarge = TextStyle(
-        fontFamily = NewsreaderFontFamily,
+    displayMedium = TextStyle(
+        fontFamily = PlayfairDisplayFontFamily,
         fontWeight = FontWeight.SemiBold,
-        fontSize = 28.sp,
-        lineHeight = 33.sp,
+        fontSize = 30.sp,
+        lineHeight = 36.sp,
         letterSpacing = (-0.3).sp
     ),
-    headlineMedium = TextStyle(
-        fontFamily = NewsreaderFontFamily,
+    headlineLarge = TextStyle(
+        fontFamily = PlayfairDisplayFontFamily,
         fontWeight = FontWeight.SemiBold,
-        fontSize = 22.sp,
-        lineHeight = 27.sp,
+        fontSize = 26.sp,
+        lineHeight = 32.sp,
         letterSpacing = (-0.2).sp
     ),
+    headlineMedium = TextStyle(
+        fontFamily = PlayfairDisplayFontFamily,
+        fontWeight = FontWeight.SemiBold,
+        fontSize = 22.sp,
+        lineHeight = 28.sp,
+        letterSpacing = (-0.15).sp
+    ),
     headlineSmall = TextStyle(
-        fontFamily = NewsreaderFontFamily,
+        fontFamily = PlayfairDisplayFontFamily,
         fontWeight = FontWeight.SemiBold,
         fontSize = 19.sp,
-        lineHeight = 24.sp,
-        letterSpacing = (-0.1).sp
+        lineHeight = 24.sp
     ),
     titleLarge = TextStyle(
-        fontFamily = PlusJakartaFontFamily,
+        fontFamily = LoraFontFamily,
         fontWeight = FontWeight.SemiBold,
         fontSize = 17.sp,
-        lineHeight = 23.sp,
-        letterSpacing = (-0.1).sp
+        lineHeight = 23.sp
     ),
     titleMedium = TextStyle(
-        fontFamily = PlusJakartaFontFamily,
+        fontFamily = LoraFontFamily,
         fontWeight = FontWeight.SemiBold,
         fontSize = 15.sp,
         lineHeight = 20.sp
     ),
     titleSmall = TextStyle(
-        fontFamily = PlusJakartaFontFamily,
+        fontFamily = DmSansFontFamily,
         fontWeight = FontWeight.SemiBold,
         fontSize = 13.5.sp,
         lineHeight = 18.sp
     ),
     bodyLarge = TextStyle(
-        fontFamily = PlusJakartaFontFamily,
+        fontFamily = DmSansFontFamily,
         fontWeight = FontWeight.Normal,
         fontSize = 15.sp,
-        lineHeight = 23.sp
+        lineHeight = 22.sp
     ),
     bodyMedium = TextStyle(
-        fontFamily = PlusJakartaFontFamily,
+        fontFamily = DmSansFontFamily,
         fontWeight = FontWeight.Normal,
         fontSize = 13.5.sp,
         lineHeight = 20.sp
     ),
     bodySmall = TextStyle(
-        fontFamily = PlusJakartaFontFamily,
+        fontFamily = DmSansFontFamily,
         fontWeight = FontWeight.Normal,
         fontSize = 12.sp,
         lineHeight = 17.sp
     ),
     labelLarge = TextStyle(
-        fontFamily = PlusJakartaFontFamily,
+        fontFamily = DmSansFontFamily,
         fontWeight = FontWeight.Medium,
         fontSize = 13.sp,
         lineHeight = 18.sp,

@@ -17,8 +17,10 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.widthIn
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.MenuBook
 import androidx.compose.material.icons.filled.Bookmark
@@ -40,6 +42,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.shadow
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
@@ -53,12 +56,13 @@ import androidx.credentials.CredentialManager
 import com.example.R
 import com.example.data.firebase.attemptAutoSignIn
 import com.example.data.firebase.onGoogleSignInClicked
+import com.example.ui.theme.DmSansFontFamily
 import com.example.ui.theme.EspressoBg
 import com.example.ui.theme.EspressoCard
 import com.example.ui.theme.EspressoInk
 import com.example.ui.theme.EspressoInkMuted
-import com.example.ui.theme.NewsreaderFontFamily
-import com.example.ui.theme.PlusJakartaFontFamily
+import com.example.ui.theme.LoraFontFamily
+import com.example.ui.theme.PlayfairDisplayFontFamily
 import com.example.ui.theme.SageOlive
 import com.example.ui.theme.SandCream
 import com.example.ui.theme.SandCreamLight
@@ -97,13 +101,15 @@ fun AuthScreen(
         contentColor = SandCreamLight,
         modifier = modifier.fillMaxSize()
     ) {
-        Box(
+        Column(
             modifier = Modifier
                 .fillMaxSize()
                 .statusBarsPadding()
                 .navigationBarsPadding()
+                .verticalScroll(rememberScrollState())
                 .padding(horizontal = 24.dp, vertical = 20.dp),
-            contentAlignment = Alignment.Center
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.Center
         ) {
             Column(
                 modifier = Modifier
@@ -111,11 +117,13 @@ fun AuthScreen(
                     .widthIn(max = 420.dp),
                 horizontalAlignment = Alignment.CenterHorizontally
             ) {
+                Spacer(modifier = Modifier.height(8.dp))
+
                 // Circular library emblem matching Profile portrait framing
                 Box(
                     modifier = Modifier
-                        .size(116.dp)
-                        .shadow(12.dp, CircleShape)
+                        .size(96.dp)
+                        .shadow(10.dp, CircleShape)
                         .clip(CircleShape)
                         .border(3.dp, SageOlive, CircleShape)
                         .background(EspressoCard)
@@ -128,71 +136,46 @@ fun AuthScreen(
                     )
                 }
 
-                Spacer(modifier = Modifier.height(22.dp))
+                Spacer(modifier = Modifier.height(16.dp))
 
                 Text(
                     text = "CivLib",
-                    fontFamily = NewsreaderFontFamily,
+                    fontFamily = PlayfairDisplayFontFamily,
                     fontWeight = FontWeight.Bold,
                     fontSize = 36.sp,
+                    letterSpacing = (-0.5).sp,
                     color = SandCreamLight
                 )
                 Spacer(modifier = Modifier.height(6.dp))
                 Text(
-                    text = "Your personal Civil Engineering college library,\nchronological curriculum & 3D PDF book reader.",
-                    fontFamily = PlusJakartaFontFamily,
+                    text = "Your personal Civil Engineering library,\nYear 1–4 roadmap & 2-page PDF book reader.",
+                    fontFamily = LoraFontFamily,
                     fontSize = 14.sp,
                     lineHeight = 20.sp,
                     color = SandCreamMuted,
                     textAlign = TextAlign.Center
                 )
 
-                Spacer(modifier = Modifier.height(28.dp))
+                Spacer(modifier = Modifier.height(22.dp))
 
-                // Warm Sand-Cream feature card
-                Surface(
-                    color = SandCream,
-                    contentColor = EspressoInk,
-                    shape = RoundedCornerShape(22.dp),
-                    modifier = Modifier.fillMaxWidth()
-                ) {
-                    Column(
+                // Prominent Sign in with Google CTA placed clearly above the fold
+                if (errorMessage != null) {
+                    Surface(
+                        color = EspressoCard,
+                        shape = RoundedCornerShape(12.dp),
                         modifier = Modifier
                             .fillMaxWidth()
-                            .padding(horizontal = 20.dp, vertical = 20.dp),
-                        verticalArrangement = Arrangement.spacedBy(14.dp)
+                            .padding(bottom = 12.dp)
                     ) {
-                        AuthBenefitRow(
-                            icon = Icons.AutoMirrored.Filled.MenuBook,
-                            title = "Chronological Year 1–4 Library",
-                            subtitle = "Curated full-length open-access engineering textbooks in sequence"
-                        )
-                        AuthBenefitRow(
-                            icon = Icons.Filled.Bookmark,
-                            title = "Personal Bookmarks & Progress",
-                            subtitle = "Save your shelf, current pages, and exam notes to your Google account"
-                        )
-                        AuthBenefitRow(
-                            icon = Icons.Filled.CloudDone,
-                            title = "Offline PDF Book Reader",
-                            subtitle = "Download textbooks once or import local PDFs with 3D page-turn reading"
+                        Text(
+                            text = errorMessage.orEmpty(),
+                            fontFamily = DmSansFontFamily,
+                            fontSize = 12.5.sp,
+                            color = SandCream,
+                            textAlign = TextAlign.Center,
+                            modifier = Modifier.padding(horizontal = 14.dp, vertical = 10.dp)
                         )
                     }
-                }
-
-                Spacer(modifier = Modifier.height(28.dp))
-
-                if (errorMessage != null) {
-                    Text(
-                        text = errorMessage.orEmpty(),
-                        fontFamily = PlusJakartaFontFamily,
-                        fontSize = 13.sp,
-                        color = SandCream,
-                        textAlign = TextAlign.Center,
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(bottom = 14.dp)
-                    )
                 }
 
                 Button(
@@ -216,7 +199,7 @@ fun AuthScreen(
                             }
                         )
                     },
-                    enabled = !isSigningIn && !isAutoChecking,
+                    enabled = !isSigningIn,
                     shape = RoundedCornerShape(28.dp),
                     colors = ButtonDefaults.buttonColors(
                         containerColor = SandCream,
@@ -224,12 +207,13 @@ fun AuthScreen(
                         disabledContainerColor = SageOlive,
                         disabledContentColor = EspressoInk
                     ),
+                    elevation = ButtonDefaults.buttonElevation(defaultElevation = 4.dp),
                     modifier = Modifier
                         .fillMaxWidth()
                         .height(54.dp)
                         .testTag("google_sign_in_button")
                 ) {
-                    if (isSigningIn || isAutoChecking) {
+                    if (isSigningIn) {
                         CircularProgressIndicator(
                             modifier = Modifier.size(20.dp),
                             color = EspressoInk,
@@ -237,24 +221,32 @@ fun AuthScreen(
                         )
                         Spacer(modifier = Modifier.width(12.dp))
                         Text(
-                            text = if (isAutoChecking) "Checking account…" else "Signing in…",
-                            fontFamily = PlusJakartaFontFamily,
+                            text = "Signing in with Google…",
+                            fontFamily = DmSansFontFamily,
                             fontWeight = FontWeight.SemiBold,
                             fontSize = 15.sp,
                             color = EspressoInk
                         )
                     } else {
-                        Text(
-                            text = "G",
-                            fontFamily = PlusJakartaFontFamily,
-                            fontWeight = FontWeight.ExtraBold,
-                            fontSize = 18.sp,
-                            color = EspressoInk
-                        )
+                        Box(
+                            contentAlignment = Alignment.Center,
+                            modifier = Modifier
+                                .size(26.dp)
+                                .clip(CircleShape)
+                                .background(Color.White)
+                        ) {
+                            Text(
+                                text = "G",
+                                fontFamily = DmSansFontFamily,
+                                fontWeight = FontWeight.ExtraBold,
+                                fontSize = 15.sp,
+                                color = EspressoInk
+                            )
+                        }
                         Spacer(modifier = Modifier.width(12.dp))
                         Text(
-                            text = "Sign in with Google",
-                            fontFamily = PlusJakartaFontFamily,
+                            text = if (isAutoChecking) "Sign in with Google" else "Sign in with Google",
+                            fontFamily = DmSansFontFamily,
                             fontWeight = FontWeight.SemiBold,
                             fontSize = 15.5.sp,
                             color = EspressoInk
@@ -262,10 +254,43 @@ fun AuthScreen(
                     }
                 }
 
+                Spacer(modifier = Modifier.height(22.dp))
+
+                // Warm Sand-Cream editorial feature card
+                Surface(
+                    color = SandCream,
+                    contentColor = EspressoInk,
+                    shape = RoundedCornerShape(20.dp),
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Column(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(horizontal = 18.dp, vertical = 18.dp),
+                        verticalArrangement = Arrangement.spacedBy(12.dp)
+                    ) {
+                        AuthBenefitRow(
+                            icon = Icons.AutoMirrored.Filled.MenuBook,
+                            title = "Chronological Year 1–4 Library",
+                            subtitle = "Curated full-length open-access engineering textbooks in sequence"
+                        )
+                        AuthBenefitRow(
+                            icon = Icons.Filled.Bookmark,
+                            title = "Personal Bookmarks & Progress",
+                            subtitle = "Save your shelf, current pages, and exam notes to your Google account"
+                        )
+                        AuthBenefitRow(
+                            icon = Icons.Filled.CloudDone,
+                            title = "2-Page Landscape Book Reader",
+                            subtitle = "Read downloaded or imported PDFs as an open two-page textbook"
+                        )
+                    }
+                }
+
                 Spacer(modifier = Modifier.height(14.dp))
                 Text(
-                    text = "Your library profile, bookmarks, and notes stay private to your account.",
-                    fontFamily = PlusJakartaFontFamily,
+                    text = "Your profile, bookmarks, and notes stay private to your Google account.",
+                    fontFamily = DmSansFontFamily,
                     fontSize = 12.sp,
                     color = SandCreamMuted,
                     textAlign = TextAlign.Center
@@ -288,7 +313,7 @@ private fun AuthBenefitRow(
         Box(
             contentAlignment = Alignment.Center,
             modifier = Modifier
-                .size(36.dp)
+                .size(34.dp)
                 .clip(CircleShape)
                 .background(SageOlive.copy(alpha = 0.45f))
         ) {
@@ -296,24 +321,24 @@ private fun AuthBenefitRow(
                 imageVector = icon,
                 contentDescription = null,
                 tint = EspressoInk,
-                modifier = Modifier.size(18.dp)
+                modifier = Modifier.size(17.dp)
             )
         }
         Spacer(modifier = Modifier.width(12.dp))
         Column(modifier = Modifier.weight(1f)) {
             Text(
                 text = title,
-                fontFamily = PlusJakartaFontFamily,
+                fontFamily = DmSansFontFamily,
                 fontWeight = FontWeight.SemiBold,
-                fontSize = 14.sp,
+                fontSize = 13.5.sp,
                 color = EspressoInk
             )
             Spacer(modifier = Modifier.height(2.dp))
             Text(
                 text = subtitle,
-                fontFamily = PlusJakartaFontFamily,
-                fontSize = 12.5.sp,
-                lineHeight = 17.sp,
+                fontFamily = DmSansFontFamily,
+                fontSize = 12.sp,
+                lineHeight = 16.5.sp,
                 color = EspressoInkMuted
             )
         }

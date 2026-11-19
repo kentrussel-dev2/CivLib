@@ -5,16 +5,19 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Icon
+import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -30,17 +33,23 @@ import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import com.example.data.model.CivilSubject
+import com.example.ui.theme.DmSansFontFamily
 import com.example.ui.theme.EspressoInk
 import com.example.ui.theme.NavBarBottomBevel
 import com.example.ui.theme.NavBarCenterCream
 import com.example.ui.theme.NavBarTopBevel
 import com.example.ui.theme.SageOliveDark
+import com.example.ui.theme.SandCreamLight
 
 /**
- * Soft-beveled warm Sand-Cream bottom navigation bar matching the reference design 1-to-1.
- * Respects system navigation bar insets so gesture pills never clip the icons.
+ * Soft-beveled warm Sand-Cream bottom navigation bar with crisp active Espresso indicator pills
+ * and clear labels so all 4 tabs (Profile, Library, Bookmarks, Home) are unmistakable and balanced.
+ * Respects system navigation bar insets so gesture pills never clip the tabs.
  */
 @Composable
 fun CreamBevelBottomNavBar(
@@ -58,40 +67,61 @@ fun CreamBevelBottomNavBar(
             .background(
                 Brush.verticalGradient(
                     0.0f to NavBarTopBevel,
-                    0.22f to NavBarCenterCream,
-                    0.78f to NavBarCenterCream,
+                    0.20f to NavBarCenterCream,
+                    0.80f to NavBarCenterCream,
                     1.0f to NavBarBottomBevel
                 )
             )
             .navigationBarsPadding()
-            .padding(horizontal = 16.dp, vertical = 10.dp)
+            .padding(horizontal = 10.dp, vertical = 8.dp)
     ) {
         Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .height(48.dp),
+                .height(54.dp),
             horizontalArrangement = Arrangement.SpaceEvenly,
             verticalAlignment = Alignment.CenterVertically
         ) {
             items.forEach { item ->
                 val isSelected = selectedRoute == item.route
-                Box(
-                    contentAlignment = Alignment.Center,
+                Column(
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                    verticalArrangement = Arrangement.Center,
                     modifier = Modifier
-                        .size(48.dp)
-                        .clip(CircleShape)
-                        .background(
-                            if (isSelected) EspressoInk.copy(alpha = 0.11f)
-                            else Color.Transparent
-                        )
+                        .weight(1f)
+                        .height(52.dp)
+                        .clip(RoundedCornerShape(16.dp))
                         .clickable { onSelectRoute(item.route) }
                         .testTag(item.testTag)
                 ) {
-                    Icon(
-                        imageVector = if (isSelected) item.selectedIcon else item.unselectedIcon,
-                        contentDescription = item.label,
-                        tint = if (isSelected) EspressoInk else EspressoInk.copy(alpha = 0.72f),
-                        modifier = Modifier.size(24.dp)
+                    Box(
+                        contentAlignment = Alignment.Center,
+                        modifier = Modifier
+                            .width(48.dp)
+                            .height(28.dp)
+                            .clip(RoundedCornerShape(999.dp))
+                            .background(
+                                if (isSelected) EspressoInk
+                                else Color.Transparent
+                            )
+                    ) {
+                        Icon(
+                            imageVector = if (isSelected) item.selectedIcon else item.unselectedIcon,
+                            contentDescription = item.label,
+                            tint = if (isSelected) SandCreamLight else EspressoInk.copy(alpha = 0.72f),
+                            modifier = Modifier.size(20.dp)
+                        )
+                    }
+                    Spacer(modifier = Modifier.height(3.dp))
+                    Text(
+                        text = item.label,
+                        fontFamily = DmSansFontFamily,
+                        fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium,
+                        fontSize = 10.5.sp,
+                        letterSpacing = 0.1.sp,
+                        color = if (isSelected) EspressoInk else EspressoInk.copy(alpha = 0.68f),
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis
                     )
                 }
             }

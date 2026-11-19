@@ -390,6 +390,7 @@ private fun AuthenticatedCivLibApp(
                             onRefreshCatalog = { viewModel.refreshOpenAccessCatalog(silent = false) },
                             onUpdateProfilePreferences = viewModel::updateProfilePreferences,
                             onSignOutClick = handleSignOut,
+                            onSwitchGoogleAccount = handleSignOut,
                             onBookClick = openBookDetail,
                             onOpenBookAtPage = openBookReader,
                             onDeleteCloudNote = viewModel::deleteCloudStudyNote

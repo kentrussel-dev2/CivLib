@@ -175,30 +175,39 @@ fun OfflineVaultScreen(
             }
         }
 
-        // Three Underlined Editorial Tabs
+        // Three Full-Width Balanced Editorial Tabs
         item(key = "vault_tabs") {
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(20.dp)
-            ) {
-                EditorialVaultTab(
-                    label = "SAVED (${personalSavedBooks.size})",
-                    selected = selectedTab == 0,
-                    onClick = { selectedTab = 0 },
-                    modifier = Modifier.testTag("bookmarks_tab_saved")
-                )
-                EditorialVaultTab(
-                    label = "OFFLINE (${offlineBooks.size})",
-                    selected = selectedTab == 1,
-                    onClick = { selectedTab = 1 },
-                    modifier = Modifier.testTag("offline_tab_books")
-                )
-                EditorialVaultTab(
-                    label = "NOTES ($totalNotesCount)",
-                    selected = selectedTab == 2,
-                    onClick = { selectedTab = 2 },
-                    modifier = Modifier.testTag("offline_tab_notes")
-                )
+            Column(modifier = Modifier.fillMaxWidth()) {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    EditorialVaultTab(
+                        label = "SAVED (${personalSavedBooks.size})",
+                        selected = selectedTab == 0,
+                        onClick = { selectedTab = 0 },
+                        modifier = Modifier
+                            .weight(1f)
+                            .testTag("bookmarks_tab_saved")
+                    )
+                    EditorialVaultTab(
+                        label = "OFFLINE (${offlineBooks.size})",
+                        selected = selectedTab == 1,
+                        onClick = { selectedTab = 1 },
+                        modifier = Modifier
+                            .weight(1f)
+                            .testTag("offline_tab_books")
+                    )
+                    EditorialVaultTab(
+                        label = "NOTES ($totalNotesCount)",
+                        selected = selectedTab == 2,
+                        onClick = { selectedTab = 2 },
+                        modifier = Modifier
+                            .weight(1f)
+                            .testTag("offline_tab_notes")
+                    )
+                }
+                HorizontalDivider(thickness = 0.75.dp, color = MaterialTheme.colorScheme.outlineVariant)
             }
         }
 
@@ -310,20 +319,23 @@ private fun EditorialVaultTab(
     modifier: Modifier = Modifier
 ) {
     Column(
+        horizontalAlignment = Alignment.CenterHorizontally,
         modifier = modifier
             .clickable(onClick = onClick)
-            .padding(vertical = 4.dp)
+            .padding(top = 6.dp)
     ) {
         Text(
             text = label,
             style = MaterialTheme.typography.labelMedium,
-            fontWeight = if (selected) FontWeight.Bold else FontWeight.Normal,
-            color = if (selected) SandCreamLight else SandCreamMuted
+            fontWeight = if (selected) FontWeight.Bold else FontWeight.Medium,
+            color = if (selected) SandCreamLight else SandCreamMuted,
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis
         )
-        Spacer(modifier = Modifier.height(5.dp))
+        Spacer(modifier = Modifier.height(8.dp))
         Box(
             modifier = Modifier
-                .width(38.dp)
+                .fillMaxWidth()
                 .height(2.5.dp)
                 .background(if (selected) SandCream else Color.Transparent)
         )

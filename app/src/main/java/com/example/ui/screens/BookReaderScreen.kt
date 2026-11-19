@@ -3,6 +3,7 @@ package com.example.ui.screens
 import android.app.Activity
 import android.content.Context
 import android.content.ContextWrapper
+import android.content.pm.ActivityInfo
 import android.view.WindowManager
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.fadeIn
@@ -231,18 +232,38 @@ fun BookReaderScreen(
         }
     }
 
+    val useTwoPageSpread = effectivePageCount >= 2 && when (preferences.readingLayout) {
+        BookReadingLayout.SINGLE_PAGE -> false
+        BookReadingLayout.TWO_PAGE_SPREAD, BookReadingLayout.AUTO -> true
+    }
+
+    // Automatically rotate into Landscape for 2-page open-book reading; restore portrait/unspecified on 1-page or exit
+    DisposableEffect(context, useTwoPageSpread) {
+        val activity = context.findActivity()
+        activity?.requestedOrientation = if (useTwoPageSpread) {
+            ActivityInfo.SCREEN_ORIENTATION_SENSOR_LANDSCAPE
+        } else {
+            ActivityInfo.SCREEN_ORIENTATION_UNSPECIFIED
+        }
+        onDispose {
+            activity?.requestedOrientation = ActivityInfo.SCREEN_ORIENTATION_UNSPECIFIED
+        }
+    }
+
+    val toggleSpreadMode: () -> Unit = {
+        val nextLayout = if (useTwoPageSpread) {
+            BookReadingLayout.SINGLE_PAGE
+        } else {
+            BookReadingLayout.TWO_PAGE_SPREAD
+        }
+        onSelectReadingLayout(nextLayout)
+    }
+
     BoxWithConstraints(
         modifier = modifier
             .fillMaxSize()
             .background(palette.deskBg)
     ) {
-        val isWideViewport = maxWidth > maxHeight && maxWidth >= 560.dp
-        val useTwoPageSpread = isPdfMode && effectivePageCount >= 2 && when (preferences.readingLayout) {
-            BookReadingLayout.AUTO -> isWideViewport
-            BookReadingLayout.SINGLE_PAGE -> false
-            BookReadingLayout.TWO_PAGE_SPREAD -> true
-        }
-
         val spreadLeftIndex = (currentIndex / 2) * 2
         val spreadPageStep = if (useTwoPageSpread) 2 else 1
 
@@ -299,40 +320,52 @@ fun BookReaderScreen(
                     .padding(horizontal = 8.dp, vertical = 6.dp)
             ) { pageIdx, isRightHalf ->
                 val isVisibleActive = pageIdx == spreadLeftIndex || pageIdx == spreadLeftIndex + 1
-                RealPdfBookPageView(
-                    session = pdfSession,
-                    sessionReadyVersion = sessionReadyVersion,
-                    pageIndex = pageIdx,
-                    totalPages = effectivePageCount,
-                    paperTheme = preferences.paperTheme,
-                    backgroundColor = palette.bg,
-                    accentColor = palette.accent,
-                    subtleColor = palette.subtle,
-                    cropMargins = preferences.cropPdfMargins,
-                    zoomScale = if (isVisibleActive) zoomScale else 1f,
-                    panOffset = if (isVisibleActive) panOffset else Offset.Zero,
-                    isActivePage = isVisibleActive,
-                    isSpreadHalf = true,
-                    onZoomPanChange = { s, o ->
-                        zoomScale = s
-                        panOffset = o
-                    },
-                    onTapPreviousPage = {
-                        if (isRightHalf) {
-                            showChrome = !showChrome
-                        } else if (spreadLeftIndex >= 2) {
-                            currentIndex = spreadLeftIndex - 2
-                        }
-                    },
-                    onTapNextPage = {
-                        if (!isRightHalf) {
-                            showChrome = !showChrome
-                        } else if (spreadLeftIndex + 2 < effectivePageCount) {
-                            currentIndex = spreadLeftIndex + 2
-                        }
-                    },
-                    onCenterTap = { showChrome = !showChrome }
-                )
+                if (isPdfMode) {
+                    RealPdfBookPageView(
+                        session = pdfSession,
+                        sessionReadyVersion = sessionReadyVersion,
+                        pageIndex = pageIdx,
+                        totalPages = effectivePageCount,
+                        paperTheme = preferences.paperTheme,
+                        backgroundColor = palette.bg,
+                        accentColor = palette.accent,
+                        subtleColor = palette.subtle,
+                        cropMargins = preferences.cropPdfMargins,
+                        zoomScale = if (isVisibleActive) zoomScale else 1f,
+                        panOffset = if (isVisibleActive) panOffset else Offset.Zero,
+                        isActivePage = isVisibleActive,
+                        isSpreadHalf = true,
+                        onZoomPanChange = { s, o ->
+                            zoomScale = s
+                            panOffset = o
+                        },
+                        onTapPreviousPage = {
+                            if (isRightHalf) {
+                                showChrome = !showChrome
+                            } else if (spreadLeftIndex >= 2) {
+                                currentIndex = spreadLeftIndex - 2
+                            }
+                        },
+                        onTapNextPage = {
+                            if (!isRightHalf) {
+                                showChrome = !showChrome
+                            } else if (spreadLeftIndex + 2 < effectivePageCount) {
+                                currentIndex = spreadLeftIndex + 2
+                            }
+                        },
+                        onCenterTap = { showChrome = !showChrome }
+                    )
+                } else {
+                    val page = pages[pageIdx.coerceIn(0, pages.lastIndex)]
+                    TextBookPageContent(
+                        page = page,
+                        totalPages = pages.size,
+                        fontSizeSp = (preferences.fontSizeSp - 1.5f).coerceAtLeast(13f),
+                        palette = palette,
+                        existingNote = bookmarks.firstOrNull { it.pageNumber == page.pageNumber }?.noteText,
+                        onCenterTap = { showChrome = !showChrome }
+                    )
+                }
             }
         } else {
             InteractiveBookPageTurner(
@@ -439,8 +472,11 @@ fun BookReaderScreen(
                 currentPageLabel = topBarPageLabel,
                 isPdfMode = isPdfMode,
                 isBookmarked = activeBookmark != null,
+                isTwoPageSpreadActive = useTwoPageSpread,
+                canToggleSpread = effectivePageCount >= 2,
                 palette = palette,
                 onBack = onBack,
+                onToggleSpreadLayout = toggleSpreadMode,
                 onShowPageGrid = { showPageGridSheet = true },
                 onShowJumpDialog = { showGoToPageDialog = true },
                 onToggleBookmark = { onToggleBookmark(currentPageNumber, currentChapterLabel) },
@@ -474,14 +510,7 @@ fun BookReaderScreen(
                     currentIndex = targetIdx.coerceIn(0, effectivePageCount - 1)
                 },
                 onSelectPaperTheme = onSelectPaperTheme,
-                onToggleSpreadLayout = {
-                    val nextLayout = if (useTwoPageSpread) {
-                        BookReadingLayout.SINGLE_PAGE
-                    } else {
-                        BookReadingLayout.TWO_PAGE_SPREAD
-                    }
-                    onSelectReadingLayout(nextLayout)
-                },
+                onToggleSpreadLayout = toggleSpreadMode,
                 onToggleCropMargins = {
                     onToggleCropPdfMargins(!preferences.cropPdfMargins)
                 },

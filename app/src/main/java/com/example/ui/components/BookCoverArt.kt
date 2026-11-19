@@ -71,14 +71,20 @@ fun HardcoverBookThumbnail(
     localCoverPath: String? = null,
     totalPages: Int = 0,
     showTextOverlay: Boolean = true,
-    elevation: Dp = 4.dp
+    elevation: Dp = 4.dp,
+    aspectRatio: Float? = 0.70f,
+    cornerRadius: Dp = 6.dp
 ) {
-    val coverShape = RoundedCornerShape(
-        topStart = 2.dp,
-        bottomStart = 2.dp,
-        topEnd = 6.dp,
-        bottomEnd = 6.dp
-    )
+    val coverShape = if (cornerRadius <= 0.dp) {
+        RoundedCornerShape(0.dp)
+    } else {
+        RoundedCornerShape(
+            topStart = (cornerRadius / 3f).coerceAtLeast(2.dp),
+            bottomStart = (cornerRadius / 3f).coerceAtLeast(2.dp),
+            topEnd = cornerRadius,
+            bottomEnd = cornerRadius
+        )
+    }
 
     val imageModel: Any? = remember(localCoverPath, coverUrl) {
         val localFile = localCoverPath?.let { File(it) }
@@ -91,7 +97,7 @@ fun HardcoverBookThumbnail(
 
     Box(
         modifier = modifier
-            .aspectRatio(0.70f)
+            .then(if (aspectRatio != null) Modifier.aspectRatio(aspectRatio) else Modifier)
             .shadow(
                 elevation = elevation,
                 shape = coverShape,

@@ -99,8 +99,11 @@ fun ReaderTopBarOverlay(
     currentPageLabel: String,
     isPdfMode: Boolean,
     isBookmarked: Boolean,
+    isTwoPageSpreadActive: Boolean = false,
+    canToggleSpread: Boolean = true,
     palette: ReaderVisualPalette,
     onBack: () -> Unit,
+    onToggleSpreadLayout: () -> Unit = {},
     onShowPageGrid: () -> Unit,
     onShowJumpDialog: () -> Unit,
     onToggleBookmark: () -> Unit,
@@ -144,6 +147,35 @@ fun ReaderTopBarOverlay(
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis
                 )
+            }
+            if (canToggleSpread) {
+                Surface(
+                    onClick = onToggleSpreadLayout,
+                    shape = RoundedCornerShape(8.dp),
+                    color = if (isTwoPageSpreadActive) palette.accent else palette.bg,
+                    modifier = Modifier
+                        .padding(end = 4.dp)
+                        .border(1.dp, palette.border, RoundedCornerShape(8.dp))
+                        .testTag("reader_top_spread_toggle")
+                ) {
+                    Row(
+                        modifier = Modifier.padding(horizontal = 8.dp, vertical = 6.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Icon(
+                            imageVector = Icons.AutoMirrored.Filled.ChromeReaderMode,
+                            contentDescription = "Switch between 2-page landscape and 1-page portrait",
+                            tint = if (isTwoPageSpreadActive) Color.White else palette.ink,
+                            modifier = Modifier.size(14.dp)
+                        )
+                        Spacer(modifier = Modifier.width(4.dp))
+                        Text(
+                            text = if (isTwoPageSpreadActive) "2P" else "1P",
+                            style = MaterialTheme.typography.labelSmall,
+                            color = if (isTwoPageSpreadActive) Color.White else palette.ink
+                        )
+                    }
+                }
             }
             if (isPdfMode) {
                 IconButton(
@@ -372,9 +404,12 @@ fun ReaderBottomBarOverlay(
                         }
                     }
 
-                    // Book-mode controls (PDF: 2-Page Spread + Margin Trim; Text: A-/A+)
-                    if (isPdfMode) {
-                        Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                    // Book-mode controls (2-Page Landscape Spread for all books + Margin Trim for PDF / A- A+ for Text)
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(6.dp)
+                    ) {
+                        if (effectivePageCount >= 2) {
                             Surface(
                                 onClick = onToggleSpreadLayout,
                                 shape = RoundedCornerShape(8.dp),
@@ -389,7 +424,7 @@ fun ReaderBottomBarOverlay(
                                 ) {
                                     Icon(
                                         imageVector = Icons.AutoMirrored.Filled.ChromeReaderMode,
-                                        contentDescription = "Toggle 2-page book spread",
+                                        contentDescription = "Toggle 2-page landscape spread",
                                         tint = if (isTwoPageSpreadActive) Color.White else palette.ink,
                                         modifier = Modifier.size(14.dp)
                                     )
@@ -401,7 +436,9 @@ fun ReaderBottomBarOverlay(
                                     )
                                 }
                             }
+                        }
 
+                        if (isPdfMode) {
                             Surface(
                                 onClick = onToggleCropMargins,
                                 shape = RoundedCornerShape(8.dp),
@@ -428,12 +465,7 @@ fun ReaderBottomBarOverlay(
                                     )
                                 }
                             }
-                        }
-                    } else {
-                        Row(
-                            verticalAlignment = Alignment.CenterVertically,
-                            horizontalArrangement = Arrangement.spacedBy(6.dp)
-                        ) {
+                        } else {
                             Surface(
                                 onClick = { onAdjustFontSize(-1.5f) },
                                 shape = RoundedCornerShape(8.dp),

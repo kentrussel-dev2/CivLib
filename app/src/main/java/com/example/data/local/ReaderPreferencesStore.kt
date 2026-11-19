@@ -20,7 +20,7 @@ data class ReaderPreferences(
     val paperTheme: PaperTheme = PaperTheme.PARCHMENT,
     val sortMode: LibrarySortMode = LibrarySortMode.BY_SUBJECT,
     val viewMode: LibraryViewMode = LibraryViewMode.BOOKSHELF,
-    val readingLayout: BookReadingLayout = BookReadingLayout.AUTO,
+    val readingLayout: BookReadingLayout = BookReadingLayout.TWO_PAGE_SPREAD,
     val cropPdfMargins: Boolean = false
 )
 
@@ -48,7 +48,7 @@ class ReaderPreferencesStore(private val context: Context) {
             } ?: LibraryViewMode.BOOKSHELF,
             readingLayout = prefs[Keys.READING_LAYOUT]?.let { name ->
                 BookReadingLayout.entries.firstOrNull { it.name == name }
-            } ?: BookReadingLayout.AUTO,
+            } ?: BookReadingLayout.TWO_PAGE_SPREAD,
             cropPdfMargins = prefs[Keys.CROP_PDF_MARGINS] ?: false
         )
     }

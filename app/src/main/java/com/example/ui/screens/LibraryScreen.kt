@@ -70,6 +70,8 @@ import com.example.ui.components.HardcoverBookThumbnail
 import com.example.ui.theme.EspressoBg
 import com.example.ui.theme.EspressoCard
 import com.example.ui.theme.EspressoInk
+import com.example.ui.theme.LoraFontFamily
+import com.example.ui.theme.PlayfairDisplayFontFamily
 import com.example.ui.theme.PlusJakartaFontFamily
 import com.example.ui.theme.SageOlive
 import com.example.ui.theme.SandCream
@@ -162,9 +164,9 @@ fun LibraryScreen(
                     activePillIndex == 2 -> "Offline"
                     else -> "My Library"
                 },
-                fontFamily = PlusJakartaFontFamily,
+                fontFamily = PlayfairDisplayFontFamily,
                 fontWeight = FontWeight.SemiBold,
-                fontSize = 23.sp,
+                fontSize = 24.sp,
                 color = SandCreamLight
             )
 
@@ -220,12 +222,13 @@ fun LibraryScreen(
         Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(horizontal = 24.dp),
-            horizontalArrangement = Arrangement.spacedBy(12.dp, Alignment.CenterHorizontally),
-            verticalAlignment = Alignment.CenterVertically
+                .padding(horizontal = 20.dp),
+            horizontalArrangement = Arrangement.spacedBy(10.dp, Alignment.CenterHorizontally),
+            verticalAlignment = Alignment.Top
         ) {
             LibraryOvalPillButton(
                 icon = Icons.AutoMirrored.Outlined.MenuBook,
+                label = "Subjects",
                 contentDescription = "All 9 Civil Engineering categories",
                 selected = activePillIndex == 0 && uiState.selectedSubject == null,
                 onClick = {
@@ -236,6 +239,7 @@ fun LibraryScreen(
             )
             LibraryOvalPillButton(
                 icon = Icons.Outlined.FormatListNumbered,
+                label = "Roadmap",
                 contentDescription = "Chronological order Year 1 to Year 4",
                 selected = activePillIndex == 1 && uiState.selectedSubject == null,
                 onClick = {
@@ -246,6 +250,7 @@ fun LibraryScreen(
             )
             LibraryOvalPillButton(
                 icon = Icons.Outlined.CheckBox,
+                label = "Offline",
                 contentDescription = "Offline downloaded PDFs",
                 selected = activePillIndex == 2 && uiState.selectedSubject == null,
                 onClick = {
@@ -256,6 +261,7 @@ fun LibraryScreen(
             )
             LibraryOvalPillButton(
                 icon = Icons.Outlined.DriveFolderUpload,
+                label = "Import",
                 contentDescription = "Import local PDF textbook",
                 selected = false,
                 onClick = onImportPdfClick,
@@ -656,29 +662,47 @@ private fun ChronologicalBookRowCard(
 @Composable
 private fun LibraryOvalPillButton(
     icon: ImageVector,
+    label: String,
     contentDescription: String,
     selected: Boolean,
     onClick: () -> Unit,
     modifier: Modifier = Modifier
 ) {
-    Surface(
-        onClick = onClick,
-        shape = RoundedCornerShape(50),
-        color = if (selected) SandCream else SageOlive,
-        shadowElevation = if (selected) 4.dp else 1.dp,
-        modifier = modifier.height(42.dp)
+    Column(
+        horizontalAlignment = Alignment.CenterHorizontally,
+        modifier = modifier
     ) {
-        Box(
-            contentAlignment = Alignment.Center,
-            modifier = Modifier.fillMaxSize()
+        Surface(
+            onClick = onClick,
+            shape = RoundedCornerShape(50),
+            color = if (selected) SandCream else SageOlive,
+            shadowElevation = if (selected) 4.dp else 1.dp,
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(40.dp)
         ) {
-            Icon(
-                imageVector = icon,
-                contentDescription = contentDescription,
-                tint = EspressoInk,
-                modifier = Modifier.size(20.dp)
-            )
+            Box(
+                contentAlignment = Alignment.Center,
+                modifier = Modifier.fillMaxSize()
+            ) {
+                Icon(
+                    imageVector = icon,
+                    contentDescription = contentDescription,
+                    tint = EspressoInk,
+                    modifier = Modifier.size(19.dp)
+                )
+            }
         }
+        Spacer(modifier = Modifier.height(5.dp))
+        Text(
+            text = label,
+            fontFamily = PlusJakartaFontFamily,
+            fontWeight = if (selected) FontWeight.Bold else FontWeight.Medium,
+            fontSize = 11.sp,
+            color = if (selected) SandCreamLight else SandCreamMuted,
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis
+        )
     }
 }
 

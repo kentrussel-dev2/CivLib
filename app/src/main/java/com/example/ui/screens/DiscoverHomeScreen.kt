@@ -8,8 +8,6 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.aspectRatio
-import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
@@ -58,6 +56,7 @@ import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.ImeAction
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -69,11 +68,14 @@ import com.example.data.model.DownloadProgress
 import com.example.data.model.SearchSourceFilter
 import com.example.data.model.formatFileSize
 import com.example.ui.components.HardcoverBookThumbnail
+import com.example.ui.theme.DmSansFontFamily
 import com.example.ui.theme.EspressoBg
 import com.example.ui.theme.EspressoCard
 import com.example.ui.theme.EspressoInk
 import com.example.ui.theme.EspressoInkMuted
-import com.example.ui.theme.PlusJakartaFontFamily
+import com.example.ui.theme.JetBrainsMonoFontFamily
+import com.example.ui.theme.LoraFontFamily
+import com.example.ui.theme.PlayfairDisplayFontFamily
 import com.example.ui.theme.SageOlive
 import com.example.ui.theme.SandCream
 import com.example.ui.theme.SandCreamLight
@@ -82,12 +84,12 @@ import com.example.ui.viewmodel.LibraryUiState
 import com.example.ui.viewmodel.SearchUiState
 
 /**
- * 1-to-1 Layout Twin of the Center Reference Screen:
+ * Editorial Home Showcase Screen:
  * - Warm Espresso background (#4D3C36)
  * - Full-width Sand-Cream pill Search bar
- * - 3 Circular Olive-Sage category medallions (Textbooks, Subjects, Import PDF)
- * - Full-width Cream Featured Highlight Banner with flowing right-side contour waves & pager dots
- * - Horizontal "Top textbooks" cover row (plus live multi-repo ISBN/keyword search results when active)
+ * - 3 mathematically centered Circular Olive-Sage medallions (PDF Books, Subjects, Import PDF)
+ * - Clean full-width Sand-Cream Featured Highlight Banner (no decorative curve lines) with crisp book/text alignment
+ * - Horizontal "Top Textbooks" shelf with aligned 0.72f book covers & refined Playfair/Lora typography
  */
 @Composable
 fun DiscoverHomeScreen(
@@ -140,9 +142,9 @@ fun DiscoverHomeScreen(
             .fillMaxSize()
             .background(EspressoBg)
             .statusBarsPadding(),
-        contentPadding = PaddingValues(top = 18.dp, bottom = 108.dp)
+        contentPadding = PaddingValues(top = 18.dp, bottom = 114.dp)
     ) {
-        // 1. Cream Pill Search Bar (exact match to center reference screen)
+        // 1. Cream Pill Search Bar
         item(key = "pill_search_bar") {
             CreamPillSearchBar(
                 query = searchState.query,
@@ -157,13 +159,12 @@ fun DiscoverHomeScreen(
             Spacer(modifier = Modifier.height(22.dp))
         }
 
-        // 2. Three Circular Olive-Sage Medallions (Textbooks / Subjects / Import PDF)
+        // 2. Three Mathematically Centered Olive-Sage Medallions
         item(key = "medallion_row") {
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(horizontal = 26.dp),
-                horizontalArrangement = Arrangement.SpaceBetween,
+                    .padding(horizontal = 18.dp),
                 verticalAlignment = Alignment.Top
             ) {
                 SageCategoryMedallion(
@@ -172,7 +173,8 @@ fun DiscoverHomeScreen(
                     iconTint = Color(0xFFFAF6EB),
                     badgeBg = Color(0xFF6B4F43),
                     onClick = onRefreshCatalog,
-                    testTag = "medallion_pdf_books"
+                    testTag = "medallion_pdf_books",
+                    modifier = Modifier.weight(1f)
                 )
                 SageCategoryMedallion(
                     label = "Subjects",
@@ -180,7 +182,8 @@ fun DiscoverHomeScreen(
                     iconTint = Color(0xFFFAF6EB),
                     badgeBg = Color(0xFF7B412D),
                     onClick = onOpenSubjectsTab,
-                    testTag = "medallion_subjects"
+                    testTag = "medallion_subjects",
+                    modifier = Modifier.weight(1f)
                 )
                 SageCategoryMedallion(
                     label = "Import PDF",
@@ -188,7 +191,8 @@ fun DiscoverHomeScreen(
                     iconTint = Color(0xFFFAF6EB),
                     badgeBg = Color(0xFF4F3830),
                     onClick = onImportPdfClick,
-                    testTag = "medallion_import_pdf"
+                    testTag = "medallion_import_pdf",
+                    modifier = Modifier.weight(1f)
                 )
             }
             Spacer(modifier = Modifier.height(24.dp))
@@ -210,7 +214,8 @@ fun DiscoverHomeScreen(
                         ) {
                             Text(
                                 text = filter.label,
-                                style = MaterialTheme.typography.labelLarge,
+                                fontFamily = DmSansFontFamily,
+                                fontWeight = FontWeight.Medium,
                                 fontSize = 12.sp,
                                 color = EspressoInk,
                                 modifier = Modifier.padding(horizontal = 14.dp, vertical = 7.dp)
@@ -235,7 +240,8 @@ fun DiscoverHomeScreen(
                             Text(
                                 text = "Searching Internet Archive, OAPEN, DOAB & Open Library…",
                                 style = MaterialTheme.typography.bodySmall,
-                                color = SandCreamMuted
+                                color = SandCreamMuted,
+                                textAlign = TextAlign.Center
                             )
                         }
                     }
@@ -247,9 +253,9 @@ fun DiscoverHomeScreen(
                     item(key = "local_hits_header") {
                         Text(
                             text = "In Your Library (${searchState.localResults.size})",
-                            fontFamily = PlusJakartaFontFamily,
+                            fontFamily = PlayfairDisplayFontFamily,
                             fontWeight = FontWeight.SemiBold,
-                            fontSize = 16.sp,
+                            fontSize = 19.sp,
                             color = SandCreamLight,
                             modifier = Modifier.padding(horizontal = 20.dp, vertical = 6.dp)
                         )
@@ -270,9 +276,9 @@ fun DiscoverHomeScreen(
                     item(key = "remote_hits_header") {
                         Text(
                             text = "Open-Access Repositories (${filteredRemote.size})",
-                            fontFamily = PlusJakartaFontFamily,
+                            fontFamily = PlayfairDisplayFontFamily,
                             fontWeight = FontWeight.SemiBold,
-                            fontSize = 16.sp,
+                            fontSize = 19.sp,
                             color = SandCreamLight,
                             modifier = Modifier.padding(start = 20.dp, end = 20.dp, top = 12.dp, bottom = 6.dp)
                         )
@@ -301,7 +307,7 @@ fun DiscoverHomeScreen(
                 }
             }
         } else {
-            // 3. Full-Width Cream Featured Highlight Banner with Flowing Wavy Contour Lines
+            // 3. Clean Full-Width Sand-Cream Featured Highlight Banner (Balanced Cover & Editorial Copy)
             if (featuredBooks.isNotEmpty()) {
                 item(key = "featured_cream_banner") {
                     FeaturedCreamBookPager(
@@ -315,22 +321,40 @@ fun DiscoverHomeScreen(
                 }
             }
 
-            // 4. "Top textbooks" Horizontal Cover Shelf (exact match to "Top shows")
+            // 4. "Top Textbooks" Horizontal Shelf
             item(key = "top_textbooks_section") {
                 Column(modifier = Modifier.fillMaxWidth()) {
-                    Text(
-                        text = "Top textbooks",
-                        fontFamily = PlusJakartaFontFamily,
-                        fontWeight = FontWeight.Medium,
-                        fontSize = 18.sp,
-                        color = SandCreamLight,
-                        modifier = Modifier.padding(horizontal = 20.dp)
-                    )
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(horizontal = 20.dp),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.Bottom
+                    ) {
+                        Text(
+                            text = "Top Textbooks",
+                            fontFamily = PlayfairDisplayFontFamily,
+                            fontWeight = FontWeight.SemiBold,
+                            fontSize = 21.sp,
+                            color = SandCreamLight
+                        )
+                        Text(
+                            text = "See all",
+                            fontFamily = DmSansFontFamily,
+                            fontWeight = FontWeight.Medium,
+                            fontSize = 13.sp,
+                            color = SandCreamMuted,
+                            modifier = Modifier
+                                .clickable(onClick = onOpenSubjectsTab)
+                                .padding(vertical = 4.dp, horizontal = 2.dp)
+                                .testTag("home_see_all_library")
+                        )
+                    }
                     Spacer(modifier = Modifier.height(14.dp))
 
                     LazyRow(
                         contentPadding = PaddingValues(horizontal = 20.dp),
-                        horizontalArrangement = Arrangement.spacedBy(12.dp)
+                        horizontalArrangement = Arrangement.spacedBy(14.dp)
                     ) {
                         items(topShelfBooks, key = { "top_${it.id}" }) { book ->
                             TopShowBookCard(
@@ -346,29 +370,29 @@ fun DiscoverHomeScreen(
                 }
             }
 
-            // Optional Continue Reading shelf directly underneath if user already opened an offline book
+            // 5. Continue Reading Card (when an offline book has active progress)
             libraryState.lastOpenedBook?.let { activeBook ->
                 item(key = "home_continue_reading") {
-                    Spacer(modifier = Modifier.height(24.dp))
+                    Spacer(modifier = Modifier.height(26.dp))
                     Column(modifier = Modifier.padding(horizontal = 20.dp)) {
                         Text(
-                            text = "Continue reading",
-                            fontFamily = PlusJakartaFontFamily,
-                            fontWeight = FontWeight.Medium,
-                            fontSize = 18.sp,
+                            text = "Continue Reading",
+                            fontFamily = PlayfairDisplayFontFamily,
+                            fontWeight = FontWeight.SemiBold,
+                            fontSize = 21.sp,
                             color = SandCreamLight
                         )
                         Spacer(modifier = Modifier.height(12.dp))
                         Surface(
                             onClick = { onQuickReadBook(activeBook.id, activeBook.currentPage) },
-                            shape = RoundedCornerShape(14.dp),
+                            shape = RoundedCornerShape(16.dp),
                             color = EspressoCard,
                             modifier = Modifier
                                 .fillMaxWidth()
                                 .testTag("continue_reading_card")
                         ) {
                             Row(
-                                modifier = Modifier.padding(12.dp),
+                                modifier = Modifier.padding(14.dp),
                                 verticalAlignment = Alignment.CenterVertically
                             ) {
                                 val subj = remember(activeBook.subjectKey) { CivilSubject.fromKey(activeBook.subjectKey) }
@@ -383,13 +407,25 @@ fun DiscoverHomeScreen(
                                     isOfflineAvailable = true,
                                     showTextOverlay = false,
                                     elevation = 3.dp,
-                                    modifier = Modifier.width(48.dp)
+                                    aspectRatio = 0.72f,
+                                    cornerRadius = 5.dp,
+                                    modifier = Modifier.width(50.dp)
                                 )
-                                Spacer(modifier = Modifier.width(12.dp))
+                                Spacer(modifier = Modifier.width(14.dp))
                                 Column(modifier = Modifier.weight(1f)) {
                                     Text(
+                                        text = activeBook.courseCode,
+                                        fontFamily = JetBrainsMonoFontFamily,
+                                        fontSize = 10.sp,
+                                        fontWeight = FontWeight.Bold,
+                                        color = SandCream
+                                    )
+                                    Spacer(modifier = Modifier.height(2.dp))
+                                    Text(
                                         text = activeBook.title,
-                                        style = MaterialTheme.typography.titleSmall,
+                                        fontFamily = LoraFontFamily,
+                                        fontWeight = FontWeight.SemiBold,
+                                        fontSize = 14.5.sp,
                                         color = SandCreamLight,
                                         maxLines = 1,
                                         overflow = TextOverflow.Ellipsis
@@ -397,19 +433,23 @@ fun DiscoverHomeScreen(
                                     Spacer(modifier = Modifier.height(3.dp))
                                     Text(
                                         text = "Page ${activeBook.currentPage} of ${activeBook.totalPages}",
-                                        style = MaterialTheme.typography.bodySmall,
+                                        fontFamily = DmSansFontFamily,
+                                        fontSize = 12.sp,
                                         color = SandCreamMuted
                                     )
                                 }
+                                Spacer(modifier = Modifier.width(10.dp))
                                 Surface(
                                     shape = RoundedCornerShape(999.dp),
                                     color = SandCream
                                 ) {
                                     Text(
                                         text = "Read",
-                                        style = MaterialTheme.typography.labelLarge,
+                                        fontFamily = DmSansFontFamily,
+                                        fontWeight = FontWeight.SemiBold,
+                                        fontSize = 13.sp,
                                         color = EspressoInk,
-                                        modifier = Modifier.padding(horizontal = 14.dp, vertical = 7.dp)
+                                        modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp)
                                     )
                                 }
                             }
@@ -446,9 +486,9 @@ private fun CreamPillSearchBar(
             Box(modifier = Modifier.weight(1f), contentAlignment = Alignment.CenterStart) {
                 if (query.isEmpty()) {
                     Text(
-                        text = "Search",
-                        fontFamily = PlusJakartaFontFamily,
-                        fontSize = 15.sp,
+                        text = "Search books, authors, or ISBN…",
+                        fontFamily = DmSansFontFamily,
+                        fontSize = 14.5.sp,
                         color = EspressoInkMuted
                     )
                 }
@@ -458,8 +498,8 @@ private fun CreamPillSearchBar(
                     singleLine = true,
                     cursorBrush = SolidColor(EspressoInk),
                     textStyle = TextStyle(
-                        fontFamily = PlusJakartaFontFamily,
-                        fontSize = 15.sp,
+                        fontFamily = DmSansFontFamily,
+                        fontSize = 14.5.sp,
                         color = EspressoInk
                     ),
                     keyboardOptions = KeyboardOptions(imeAction = ImeAction.Search),
@@ -472,7 +512,7 @@ private fun CreamPillSearchBar(
             if (query.isNotEmpty()) {
                 IconButton(
                     onClick = onClear,
-                    modifier = Modifier.size(34.dp)
+                    modifier = Modifier.size(36.dp)
                 ) {
                     Icon(
                         imageVector = Icons.Filled.Clear,
@@ -485,7 +525,7 @@ private fun CreamPillSearchBar(
             IconButton(
                 onClick = onSearchSubmit,
                 modifier = Modifier
-                    .size(38.dp)
+                    .size(40.dp)
                     .testTag("execute_search_button")
             ) {
                 Icon(
@@ -506,12 +546,15 @@ private fun SageCategoryMedallion(
     iconTint: Color,
     badgeBg: Color,
     onClick: () -> Unit,
-    testTag: String
+    testTag: String,
+    modifier: Modifier = Modifier
 ) {
     Column(
         horizontalAlignment = Alignment.CenterHorizontally,
-        modifier = Modifier
+        modifier = modifier
+            .clip(RoundedCornerShape(14.dp))
             .clickable(onClick = onClick)
+            .padding(vertical = 4.dp)
             .testTag(testTag)
     ) {
         Box(
@@ -533,16 +576,20 @@ private fun SageCategoryMedallion(
                     imageVector = icon,
                     contentDescription = label,
                     tint = iconTint,
-                    modifier = Modifier.size(23.dp)
+                    modifier = Modifier.size(22.dp)
                 )
             }
         }
         Spacer(modifier = Modifier.height(8.dp))
         Text(
             text = label,
-            fontFamily = PlusJakartaFontFamily,
+            fontFamily = DmSansFontFamily,
+            fontWeight = FontWeight.Medium,
             fontSize = 12.5.sp,
-            color = SandCreamLight
+            color = SandCreamLight,
+            textAlign = TextAlign.Center,
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis
         )
     }
 }
@@ -557,7 +604,7 @@ private fun FeaturedCreamBookPager(
     Box(
         modifier = Modifier
             .fillMaxWidth()
-            .height(210.dp)
+            .height(216.dp)
             .background(SandCream)
     ) {
         Column(
@@ -577,7 +624,7 @@ private fun FeaturedCreamBookPager(
                     modifier = Modifier
                         .fillMaxSize()
                         .clickable { onBookClick(book) }
-                        .padding(start = 24.dp, end = 24.dp, top = 22.dp, bottom = 8.dp),
+                        .padding(start = 22.dp, end = 22.dp, top = 20.dp, bottom = 8.dp),
                     verticalAlignment = Alignment.CenterVertically
                 ) {
                     HardcoverBookThumbnail(
@@ -591,40 +638,61 @@ private fun FeaturedCreamBookPager(
                         totalPages = book.totalPages,
                         isOfflineAvailable = book.isOfflineAvailable,
                         elevation = 6.dp,
-                        modifier = Modifier
-                            .fillMaxHeight()
-                            .aspectRatio(0.72f)
+                        aspectRatio = 0.72f,
+                        cornerRadius = 6.dp,
+                        modifier = Modifier.width(102.dp)
                     )
-                    Spacer(modifier = Modifier.width(16.dp))
+                    Spacer(modifier = Modifier.width(18.dp))
                     Column(
                         modifier = Modifier.weight(1f),
                         verticalArrangement = Arrangement.Center
                     ) {
                         Text(
-                            text = book.title,
-                            fontFamily = PlusJakartaFontFamily,
+                            text = "YEAR ${subject.curriculumYear} · ${book.courseCode}",
+                            fontFamily = JetBrainsMonoFontFamily,
                             fontWeight = FontWeight.Bold,
-                            fontSize = 13.5.sp,
-                            lineHeight = 17.sp,
-                            color = EspressoInk,
-                            maxLines = 2,
+                            fontSize = 9.5.sp,
+                            letterSpacing = 0.6.sp,
+                            color = EspressoInkMuted,
+                            maxLines = 1,
                             overflow = TextOverflow.Ellipsis
                         )
                         Spacer(modifier = Modifier.height(4.dp))
                         Text(
-                            text = book.description,
-                            fontFamily = PlusJakartaFontFamily,
+                            text = book.title,
+                            fontFamily = PlayfairDisplayFontFamily,
+                            fontWeight = FontWeight.Bold,
+                            fontSize = 16.5.sp,
+                            lineHeight = 20.sp,
+                            color = EspressoInk,
+                            maxLines = 2,
+                            overflow = TextOverflow.Ellipsis
+                        )
+                        Spacer(modifier = Modifier.height(3.dp))
+                        Text(
+                            text = book.author,
+                            fontFamily = DmSansFontFamily,
+                            fontWeight = FontWeight.Medium,
                             fontSize = 11.5.sp,
-                            lineHeight = 15.5.sp,
+                            color = EspressoInk.copy(alpha = 0.78f),
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis
+                        )
+                        Spacer(modifier = Modifier.height(6.dp))
+                        Text(
+                            text = book.description,
+                            fontFamily = LoraFontFamily,
+                            fontSize = 11.5.sp,
+                            lineHeight = 16.sp,
                             color = EspressoInkMuted,
-                            maxLines = 5,
+                            maxLines = 3,
                             overflow = TextOverflow.Ellipsis
                         )
                     }
                 }
             }
 
-            // Centered Pager Indicator Dots (exact match to mockup)
+            // Clean Centered Pager Indicator Dots
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
@@ -637,7 +705,8 @@ private fun FeaturedCreamBookPager(
                     Box(
                         modifier = Modifier
                             .padding(horizontal = 3.5.dp)
-                            .size(if (active) 7.dp else 6.dp)
+                            .width(if (active) 16.dp else 6.dp)
+                            .height(6.dp)
                             .clip(CircleShape)
                             .background(
                                 if (active) EspressoInk else EspressoInk.copy(alpha = 0.28f)
@@ -658,7 +727,7 @@ private fun TopShowBookCard(
     val subject = remember(book.subjectKey) { CivilSubject.fromKey(book.subjectKey) }
     Column(
         modifier = Modifier
-            .width(110.dp)
+            .width(116.dp)
             .clickable(onClick = onClick)
             .testTag("book_shelf_card_${book.id}")
     ) {
@@ -672,14 +741,13 @@ private fun TopShowBookCard(
             coverArtKey = book.coverArtKey,
             totalPages = book.totalPages,
             isOfflineAvailable = book.isOfflineAvailable,
-            elevation = 4.dp,
-            modifier = Modifier
-                .fillMaxWidth()
-                .aspectRatio(0.84f)
-                .clip(RoundedCornerShape(10.dp))
+            elevation = 5.dp,
+            aspectRatio = 0.72f,
+            cornerRadius = 8.dp,
+            modifier = Modifier.fillMaxWidth()
         )
         if (progress != null) {
-            Spacer(modifier = Modifier.height(5.dp))
+            Spacer(modifier = Modifier.height(6.dp))
             LinearProgressIndicator(
                 color = SandCream,
                 trackColor = EspressoCard,
@@ -689,11 +757,22 @@ private fun TopShowBookCard(
         Spacer(modifier = Modifier.height(8.dp))
         Text(
             text = book.title,
-            fontFamily = PlusJakartaFontFamily,
-            fontSize = 12.5.sp,
-            lineHeight = 16.sp,
+            fontFamily = LoraFontFamily,
+            fontWeight = FontWeight.SemiBold,
+            fontSize = 13.sp,
+            lineHeight = 16.5.sp,
             color = SandCreamLight,
+            minLines = 2,
             maxLines = 2,
+            overflow = TextOverflow.Ellipsis
+        )
+        Spacer(modifier = Modifier.height(2.dp))
+        Text(
+            text = "Y${subject.curriculumYear} · ${book.courseCode}",
+            fontFamily = JetBrainsMonoFontFamily,
+            fontSize = 9.5.sp,
+            color = SandCreamMuted,
+            maxLines = 1,
             overflow = TextOverflow.Ellipsis
         )
     }
@@ -726,32 +805,40 @@ private fun HomeLocalSearchRow(
                 coverArtKey = book.coverArtKey,
                 isOfflineAvailable = book.isOfflineAvailable,
                 showTextOverlay = false,
+                aspectRatio = 0.72f,
+                cornerRadius = 4.dp,
                 modifier = Modifier.width(48.dp)
             )
             Spacer(modifier = Modifier.width(12.dp))
             Column(modifier = Modifier.weight(1f)) {
                 Text(
                     text = book.title,
-                    style = MaterialTheme.typography.titleSmall,
+                    fontFamily = LoraFontFamily,
+                    fontWeight = FontWeight.SemiBold,
+                    fontSize = 14.sp,
                     color = SandCreamLight,
                     maxLines = 2,
                     overflow = TextOverflow.Ellipsis
                 )
                 Text(
                     text = "${book.author} · ${book.courseCode}",
-                    style = MaterialTheme.typography.bodySmall,
+                    fontFamily = DmSansFontFamily,
+                    fontSize = 12.sp,
                     color = SandCreamMuted,
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis
                 )
             }
+            Spacer(modifier = Modifier.width(8.dp))
             Surface(
                 shape = RoundedCornerShape(999.dp),
                 color = SandCream
             ) {
                 Text(
                     text = if (book.isOfflineAvailable) "Read" else "View",
-                    style = MaterialTheme.typography.labelLarge,
+                    fontFamily = DmSansFontFamily,
+                    fontWeight = FontWeight.SemiBold,
+                    fontSize = 12.5.sp,
                     color = EspressoInk,
                     modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp)
                 )
@@ -785,18 +872,23 @@ private fun HomeRemoteSearchRow(
                     coverArtKey = book.subject.defaultCoverArtKey,
                     isOfflineAvailable = book.isOfflineDownloaded,
                     showTextOverlay = false,
+                    aspectRatio = 0.72f,
+                    cornerRadius = 4.dp,
                     modifier = Modifier.width(50.dp)
                 )
                 Spacer(modifier = Modifier.width(12.dp))
                 Column(modifier = Modifier.weight(1f)) {
                     Text(
                         text = book.sourceType.displayLabel.uppercase(),
-                        style = MaterialTheme.typography.labelSmall,
+                        fontFamily = JetBrainsMonoFontFamily,
+                        fontSize = 9.5.sp,
                         color = SandCream
                     )
                     Text(
                         text = book.title,
-                        style = MaterialTheme.typography.titleSmall,
+                        fontFamily = LoraFontFamily,
+                        fontWeight = FontWeight.SemiBold,
+                        fontSize = 14.sp,
                         color = SandCreamLight,
                         maxLines = 2,
                         overflow = TextOverflow.Ellipsis
@@ -807,7 +899,8 @@ private fun HomeRemoteSearchRow(
                             if (book.estimatedPages != null && book.estimatedPages > 0) append(" · ~${book.estimatedPages}p")
                             if (book.fileSizeBytes > 0L) append(" · ${formatFileSize(book.fileSizeBytes)}")
                         },
-                        style = MaterialTheme.typography.bodySmall,
+                        fontFamily = DmSansFontFamily,
+                        fontSize = 12.sp,
                         color = SandCreamMuted,
                         maxLines = 1,
                         overflow = TextOverflow.Ellipsis
@@ -821,7 +914,8 @@ private fun HomeRemoteSearchRow(
                         if (downloadProgress != null) {
                             Text(
                                 text = downloadProgress.formattedSize,
-                                style = MaterialTheme.typography.labelSmall,
+                                fontFamily = JetBrainsMonoFontFamily,
+                                fontSize = 10.sp,
                                 color = SandCream
                             )
                             IconButton(onClick = onCancel, modifier = Modifier.size(30.dp)) {
